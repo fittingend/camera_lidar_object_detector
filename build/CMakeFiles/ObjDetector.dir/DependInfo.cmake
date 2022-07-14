@@ -4,13 +4,13 @@ set(CMAKE_DEPENDS_LANGUAGES
   )
 # The set of files for implicit dependencies of each language:
 set(CMAKE_DEPENDS_CHECK_CXX
-  "/home/sujin/work/ObjDetector_220713/ObjDetector.cpp" "/home/sujin/work/ObjDetector_220713/build/CMakeFiles/ObjDetector.dir/ObjDetector.cpp.o"
-  "/home/sujin/work/ObjDetector_220713/lib/lidar_clustering.cpp" "/home/sujin/work/ObjDetector_220713/build/CMakeFiles/ObjDetector.dir/lib/lidar_clustering.cpp.o"
-  "/home/sujin/work/ObjDetector_220713/lib/lidar_out.cpp" "/home/sujin/work/ObjDetector_220713/build/CMakeFiles/ObjDetector.dir/lib/lidar_out.cpp.o"
-  "/home/sujin/work/ObjDetector_220713/lib/lidar_worker.cpp" "/home/sujin/work/ObjDetector_220713/build/CMakeFiles/ObjDetector.dir/lib/lidar_worker.cpp.o"
-  "/home/sujin/work/ObjDetector_220713/lib/udp_worker.cpp" "/home/sujin/work/ObjDetector_220713/build/CMakeFiles/ObjDetector.dir/lib/udp_worker.cpp.o"
-  "/home/sujin/work/ObjDetector_220713/src/ConfigParser.cpp" "/home/sujin/work/ObjDetector_220713/build/CMakeFiles/ObjDetector.dir/src/ConfigParser.cpp.o"
-  "/home/sujin/work/ObjDetector_220713/src/visualization.cpp" "/home/sujin/work/ObjDetector_220713/build/CMakeFiles/ObjDetector.dir/src/visualization.cpp.o"
+  "/home/dsjeon/git/camera_lidar_object_detector/ObjDetector.cpp" "/home/dsjeon/git/camera_lidar_object_detector/build/CMakeFiles/ObjDetector.dir/ObjDetector.cpp.o"
+  "/home/dsjeon/git/camera_lidar_object_detector/lib/lidar_clustering.cpp" "/home/dsjeon/git/camera_lidar_object_detector/build/CMakeFiles/ObjDetector.dir/lib/lidar_clustering.cpp.o"
+  "/home/dsjeon/git/camera_lidar_object_detector/lib/lidar_out.cpp" "/home/dsjeon/git/camera_lidar_object_detector/build/CMakeFiles/ObjDetector.dir/lib/lidar_out.cpp.o"
+  "/home/dsjeon/git/camera_lidar_object_detector/lib/lidar_worker.cpp" "/home/dsjeon/git/camera_lidar_object_detector/build/CMakeFiles/ObjDetector.dir/lib/lidar_worker.cpp.o"
+  "/home/dsjeon/git/camera_lidar_object_detector/lib/udp_worker.cpp" "/home/dsjeon/git/camera_lidar_object_detector/build/CMakeFiles/ObjDetector.dir/lib/udp_worker.cpp.o"
+  "/home/dsjeon/git/camera_lidar_object_detector/src/ConfigParser.cpp" "/home/dsjeon/git/camera_lidar_object_detector/build/CMakeFiles/ObjDetector.dir/src/ConfigParser.cpp.o"
+  "/home/dsjeon/git/camera_lidar_object_detector/src/visualization.cpp" "/home/dsjeon/git/camera_lidar_object_detector/build/CMakeFiles/ObjDetector.dir/src/visualization.cpp.o"
   )
 set(CMAKE_CXX_COMPILER_ID "GNU")
 
@@ -32,7 +32,7 @@ set(CMAKE_CXX_TARGET_INCLUDE_PATH
   "/usr/include/pcl-1.8"
   "../src"
   "../lib"
-  "/home/sujin/work/rs_driver/src"
+  "/home/dsjeon/lib/rs_driver/src"
   "/usr/local/rs_driver/include"
   "/usr/include/eigen3"
   "/usr/include/vtk-7.1"

@@ -287,13 +287,20 @@ void projection_handler()
         auto confidence = confidences[i];
         auto classId = classIds[i];
         const auto color = colors[classId % colors.size()];
-
-        // std::cout << box << std::endl;
         cv::rectangle(myImage, box, color, 3);
         cv::rectangle(myImage, cv::Point(box.x, box.y - 20), cv::Point(box.x + box.width, box.y), color, cv::FILLED);
         
+        int box_x_min = box.x;
+        int box_x_max = box.x+box.width;
+        int box_y_min = box.y;
+        int box_y_max = box.y+box.height;
+        int center_x = box.x + (int)(box.width/2);
+        int center_y = box.y + (int)(box.height/2);
+
+        cv::circle(myImage, cv::Point(center_x,center_y),5, cv::Scalar(0, 0, 255), -1);
+
         char obj_msg[100];
-        sprintf(obj_msg, "%s:%.2f", class_list[classId].c_str(), confidence );
+        sprintf(obj_msg, "%s:%.1f", class_list[classId].c_str(), confidence );
         cv::putText(myImage, obj_msg, cv::Point(box.x, box.y - 5), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 0));
     }
 

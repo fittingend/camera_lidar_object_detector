@@ -1,4 +1,4 @@
-# Install script for directory: /home/sujin/work/ObjDetector_220713
+# Install script for directory: /home/dsjeon/git/camera_lidar_object_detector
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -45,5 +45,5 @@ endif()
 
 string(REPLACE ";" "\n" CMAKE_INSTALL_MANIFEST_CONTENT
        "${CMAKE_INSTALL_MANIFEST_FILES}")
-file(WRITE "/home/sujin/work/ObjDetector_220713/build/${CMAKE_INSTALL_MANIFEST}"
+file(WRITE "/home/dsjeon/git/camera_lidar_object_detector/build/${CMAKE_INSTALL_MANIFEST}"
      "${CMAKE_INSTALL_MANIFEST_CONTENT}")
