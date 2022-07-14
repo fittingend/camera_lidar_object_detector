@@ -6,5 +6,5 @@ CXX_FLAGS =  -DLIDAR_VISUALIZATION_ON -pthread -std=c++0x -Wpointer-arith -Wl,--
 
 CXX_DEFINES = -DBOOST_ALL_NO_LIB -DBOOST_DATE_TIME_DYN_LINK -DBOOST_REGEX_DYN_LINK -DBOOST_SYSTEM_DYN_LINK -DDISABLE_LIBUSB_1_0 -DDISABLE_PCAP -DDISABLE_PNG -DvtkRenderingContext2D_AUTOINIT="1(vtkRenderingContextOpenGL2)" -DvtkRenderingCore_AUTOINIT="3(vtkInteractionStyle,vtkRenderingFreeType,vtkRenderingOpenGL2)"
 
-CXX_INCLUDES = -I/usr/include/pcl-1.8 -I/home/sujin/work/ObjDetector_220713/src -I/home/sujin/work/ObjDetector_220713/lib -I/home/sujin/work/rs_driver/src -I/usr/local/rs_driver/include -isystem /usr/include/eigen3 -isystem /usr/include/vtk-7.1 -isystem /usr/include/freetype2 -isystem /usr/include/pcl-1.10 -isystem /usr/include/ni -isystem /usr/include/openni2 -isystem /usr/local/include/opencv4 
+CXX_INCLUDES = -I/usr/include/pcl-1.8 -I/home/dsjeon/git/camera_lidar_object_detector/src -I/home/dsjeon/git/camera_lidar_object_detector/lib -I/home/dsjeon/lib/rs_driver/src -I/usr/local/rs_driver/include -isystem /usr/include/eigen3 -isystem /usr/include/vtk-7.1 -isystem /usr/include/freetype2 -isystem /usr/include/pcl-1.10 -isystem /usr/include/ni -isystem /usr/include/openni2 -isystem /usr/local/include/opencv4 
 
