@@ -44,10 +44,10 @@ RM = /usr/bin/cmake -E remove -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /home/dsjeon/git/camera_lidar_object_detector
+CMAKE_SOURCE_DIR = /home/sujin/work/ObjDetector_220713
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /home/dsjeon/git/camera_lidar_object_detector/build
+CMAKE_BINARY_DIR = /home/sujin/work/ObjDetector_220713/build
 
 #=============================================================================
 # Directory level rules for the build root directory
@@ -74,14 +74,14 @@ clean: CMakeFiles/ObjDetector.dir/clean
 CMakeFiles/ObjDetector.dir/all:
 	$(MAKE) -f CMakeFiles/ObjDetector.dir/build.make CMakeFiles/ObjDetector.dir/depend
 	$(MAKE) -f CMakeFiles/ObjDetector.dir/build.make CMakeFiles/ObjDetector.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/dsjeon/git/camera_lidar_object_detector/build/CMakeFiles --progress-num=1,2,3,4,5,6,7,8 "Built target ObjDetector"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/sujin/work/ObjDetector_220713/build/CMakeFiles --progress-num=1,2,3,4,5,6,7,8 "Built target ObjDetector"
 .PHONY : CMakeFiles/ObjDetector.dir/all
 
 # Build rule for subdir invocation for target.
 CMakeFiles/ObjDetector.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/dsjeon/git/camera_lidar_object_detector/build/CMakeFiles 8
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/sujin/work/ObjDetector_220713/build/CMakeFiles 8
 	$(MAKE) -f CMakeFiles/Makefile2 CMakeFiles/ObjDetector.dir/all
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/dsjeon/git/camera_lidar_object_detector/build/CMakeFiles 0
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/sujin/work/ObjDetector_220713/build/CMakeFiles 0
 .PHONY : CMakeFiles/ObjDetector.dir/rule
 
 # Convenience name for target.
