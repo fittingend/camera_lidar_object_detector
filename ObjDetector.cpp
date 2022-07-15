@@ -39,12 +39,22 @@ config.ini
 
 CConfigParser UserCfg("./config.ini");
 
-int CAM_PORT = UserCfg.GetInt("CAM_PORT");
-string WEIGHTS_PATH = UserCfg.GetString("WEIGHTS_PATH");
-string CFG_PATH = UserCfg.GetString("CFG_PATH");
-string CLASSES_PATH = UserCfg.GetString("CLASSES_PATH");
+bool SIMULMODE_ON = UserCfg.GetBool("SIMULMODE_ON");
+string PCAPFile = UserCfg.GetString("PCAPFile");
+string VideoFile = UserCfg.GetString("VideoFile");
 
-float SCALE_FACTOR = UserCfg.GetFloat("SCALE_FACTOR");
+int CAM_PORT         = UserCfg.GetInt("CAM_PORT");
+int LIDAR_MSOP_PORT  = UserCfg.GetInt("LIDAR_MSOP_PORT");
+int LIDAR_DIFOP_PORT = UserCfg.GetInt("LIDAR_DIFOP_PORT");
+
+float SCALE_FACTOR     = UserCfg.GetFloat("SCALE_FACTOR");
+
+string WEIGHTS_PATH     = UserCfg.GetString("WEIGHTS_PATH");
+string CFG_PATH         = UserCfg.GetString("CFG_PATH");
+string CLASSES_PATH     = UserCfg.GetString("CLASSES_PATH");
+
+string INTRINSIC_PATH     = UserCfg.GetString("INTRINSIC_PATH");
+string EXTRINSIC_PATH     = UserCfg.GetString("EXTRINSIC_PATH");
 
 /*
 ================================
@@ -168,38 +178,67 @@ void keyboard_input_handler()
     }
   }
 }
+void loadIntrinsic(cv::Mat& P_rect_00){
+  FILE *ref = fopen(INTRINSIC_PATH.c_str(), "ro");
+  char line[1024], c;
+  int line_num = 0;
 
-void loadCalibrationData(cv::Mat &P_rect_00, cv::Mat &RT)
-{
-  RT.at<double>(0, 0) = -4.410411534819819179e-02;
-  RT.at<double>(0, 1) = -9.989318195782288523e-01;
-  RT.at<double>(0, 2) = -1.378574783904967793e-02;
-  RT.at<double>(0, 3) = 1.556009358886184871e-02;
-  RT.at<double>(1, 0) = -2.717181149355868408e-02;
-  RT.at<double>(1, 1) = 1.499351210954324998e-02;
-  RT.at<double>(1, 2) = -9.995183276232504355e-01;
-  RT.at<double>(1, 3) = 6.512429988850447493e-02;
-  RT.at<double>(2, 0) = 9.986573584916456081e-01;
-  RT.at<double>(2, 1) = -4.370828787255359726e-02;
-  RT.at<double>(2, 2) = -2.780406268405100079e-02;
-  RT.at<double>(2, 3) = 7.613610580158369778e-02;
-  RT.at<double>(3, 0) = 0.0;
-  RT.at<double>(3, 1) = 0.0;
-  RT.at<double>(3, 2) = 0.0;
-  RT.at<double>(3, 3) = 1.0;
+  fseek(ref, 0, SEEK_SET);
+  while (1)
+  {
+      fgets(line, 1024, ref);
+      c = strlen(line);
+      if (c == 0)
+      {
+          break;
+      }
+      line_num++;
+      line[0] = '\0';
+  }
+  fseek(ref, 0, SEEK_SET);
 
-  P_rect_00.at<double>(0, 0) = 1985.56984;
-  P_rect_00.at<double>(0, 1) = 0.000000e+00;
-  P_rect_00.at<double>(0, 2) = 1015.90116;
-  P_rect_00.at<double>(0, 3) = 0.000000e+00;
-  P_rect_00.at<double>(1, 0) = 0.000000e+00;
-  P_rect_00.at<double>(1, 1) = 1990.54053;
-  P_rect_00.at<double>(1, 2) = 575.9691;
-  P_rect_00.at<double>(1, 3) = 0.000000e+00;
-  P_rect_00.at<double>(2, 0) = 0.000000e+00;
-  P_rect_00.at<double>(2, 1) = 0.000000e+00;
-  P_rect_00.at<double>(2, 2) = 1.000000e+00;
-  P_rect_00.at<double>(2, 3) = 0.000000e+00;
+  fscanf(ref, "%lf %lf %lf", &P_rect_00.at<double>(0, 0), &P_rect_00.at<double>(0, 1), &P_rect_00.at<double>(0, 2));
+  fscanf(ref, "%lf %lf %lf", &P_rect_00.at<double>(1, 0), &P_rect_00.at<double>(1, 1), &P_rect_00.at<double>(1, 2));
+  fscanf(ref, "%lf %lf %lf", &P_rect_00.at<double>(2, 0), &P_rect_00.at<double>(2, 1), &P_rect_00.at<double>(2, 2));
+
+  P_rect_00.at<double>(0, 3) = 0.0;
+  P_rect_00.at<double>(1, 3) = 0.0;
+  P_rect_00.at<double>(2, 3) = 0.0;
+
+  printf("%lf %lf %lf %lf\n", P_rect_00.at<double>(0, 0), P_rect_00.at<double>(0, 1), P_rect_00.at<double>(0, 2), P_rect_00.at<double>(0, 3));
+  printf("%lf %lf %lf %lf\n", P_rect_00.at<double>(1, 0), P_rect_00.at<double>(1, 1), P_rect_00.at<double>(1, 2), P_rect_00.at<double>(1, 3));
+  printf("%lf %lf %lf %lf\n", P_rect_00.at<double>(2, 0), P_rect_00.at<double>(2, 1), P_rect_00.at<double>(2, 2), P_rect_00.at<double>(2, 3));
+
+}
+
+void loadExtrinsic(cv::Mat& RT){
+  FILE *ref = fopen(EXTRINSIC_PATH.c_str(), "ro");
+  char line[1024], c;
+  int line_num = 0;
+
+  fseek(ref, 0, SEEK_SET);
+  while (1)
+  {
+      fgets(line, 1024, ref);
+      c = strlen(line);
+      if (c == 0)
+      {
+          break;
+      }
+      line_num++;
+      line[0] = '\0';
+  }
+  fseek(ref, 0, SEEK_SET);
+
+  fscanf(ref, "%lf %lf %lf %lf", &RT.at<double>(0, 0), &RT.at<double>(0, 1), &RT.at<double>(0, 2), &RT.at<double>(0, 3));
+  fscanf(ref, "%lf %lf %lf %lf", &RT.at<double>(1, 0), &RT.at<double>(1, 1), &RT.at<double>(1, 2), &RT.at<double>(1, 3));
+  fscanf(ref, "%lf %lf %lf %lf", &RT.at<double>(2, 0), &RT.at<double>(2, 1), &RT.at<double>(2, 2), &RT.at<double>(2, 3));
+  fscanf(ref, "%lf %lf %lf %lf", &RT.at<double>(3, 0), &RT.at<double>(3, 1), &RT.at<double>(3, 2), &RT.at<double>(3, 3));
+
+  printf("%lf %lf %lf %lf\n", RT.at<double>(0, 0), RT.at<double>(0, 1), RT.at<double>(0, 2), RT.at<double>(0, 3));
+  printf("%lf %lf %lf %lf\n", RT.at<double>(1, 0), RT.at<double>(1, 1), RT.at<double>(1, 2), RT.at<double>(1, 3));
+  printf("%lf %lf %lf %lf\n", RT.at<double>(2, 0), RT.at<double>(2, 1), RT.at<double>(2, 2), RT.at<double>(2, 3));
+  printf("%lf %lf %lf %lf\n", RT.at<double>(3, 0), RT.at<double>(3, 1), RT.at<double>(3, 2), RT.at<double>(3, 3));
 }
 
 void projection_handler()
@@ -207,17 +246,24 @@ void projection_handler()
   uint32_t frame_cnt = 0, total_frames = 0;
   float fps = 0.;
 
-  cv::Mat myImage, overlay;
+  cv::Mat frame;
   cv::VideoCapture capture;
 
-  capture.open(CAM_PORT);
-  if (!capture.isOpened())
-  {
-    std::cerr << "Error opening video file\n";
-    return;
+  if(SIMULMODE_ON){
+    capture.open(VideoFile);
+      //capture.set(cv::CAP_PROP_FRAME_WIDTH, 800);
+      //capture.set(cv::CAP_PROP_FRAME_HEIGHT, 600);
+  }
+  else{
+    capture.open(CAM_PORT);
   }
 
-  // yolov4 init
+  if(!capture.isOpened()){
+      std::cerr << "Error opening video file\n";
+      return;
+  }
+
+  /* -----------------------Yolo-v4 init------------------------------*/
   std::vector<std::string> class_list = load_class_list();
   bool is_cuda = cv::cuda::getCudaEnabledDeviceCount();
 
@@ -225,32 +271,32 @@ void projection_handler()
   load_net(net, is_cuda);
 
   auto model = cv::dnn::DetectionModel(net);
-  model.setInputParams(1. / 255, cv::Size(416, 416), cv::Scalar(), true);
+  model.setInputParams(1./255, cv::Size(416, 416), cv::Scalar(), true);
+  /* -----------------------------------------------------------------*/
 
   // pcl to 2d image plane
   cv::Mat P_rect_00(3, 4, cv::DataType<double>::type); // 3x4 projection matrix after rectification
   //    cv::Mat R_rect_00(4, 4, cv::DataType<double>::type); // 3x3 rectifying rotation to make image planes co-planar
   cv::Mat RT(4, 4, cv::DataType<double>::type); // rotation matrix and translation vector
-  loadCalibrationData(P_rect_00, RT);
+  // Load Calibration Data
+  loadExtrinsic(RT);
+  loadIntrinsic(P_rect_00);
 
   cv::Mat X(4, 1, cv::DataType<double>::type);
   cv::Mat Y(3, 1, cv::DataType<double>::type);
 
   auto start = std::chrono::high_resolution_clock::now();
   while (true)
-  {
-    capture.read(myImage);
-    if (myImage.empty())
-    { // Breaking the loop if no video frame is detected//
-      break;
-    }
+  {  
+    capture.read(frame);
+    if (frame.empty()) break; // Breaking the loop if no video frame is detected.
 
-    cv::resize(myImage, myImage, cv::Size((int)(myImage.cols / SCALE_FACTOR) + 1, (int)(myImage.rows / SCALE_FACTOR) + 1));
+    cv::resize(frame, frame, cv::Size((int)(frame.cols / SCALE_FACTOR) + 1, (int)(frame.rows / SCALE_FACTOR) + 1));
 
     std::vector<int> classIds;
     std::vector<float> confidences;
     std::vector<cv::Rect> boxes;
-    model.detect(myImage, classIds, confidences, boxes, .2, .4);
+    model.detect(frame, classIds, confidences, boxes, .2, .4);
     total_frames++;
     frame_cnt++;
     int i = 0;
@@ -281,7 +327,7 @@ void projection_handler()
       int red = min(255, (int)(255 * abs((val - maxVal) / maxVal)));
       int green = min(255, (int)(255 * (1 - abs((val - maxVal) / maxVal))));
 
-      cv::circle(myImage, pt, 1, cv::Scalar(0, green, red), -1);
+      cv::circle(frame, pt, 1, cv::Scalar(0, green, red), -1);
       test.push_back(PointXYZ_CameraXY(it->x, it->y, it->z, pt.x, pt.y));
       //      cout << test[i].m_x << ", " << test[i].m_y << ", " <<test[i].m_z<< endl;
       i++;
@@ -291,30 +337,25 @@ void projection_handler()
     for (int i = 0; i < detections; ++i)
     {
 
-      auto box = boxes[i];
-      auto confidence = confidences[i];
-      auto classId = classIds[i];
-      const auto color = colors[classId % colors.size()];
-      cv::rectangle(myImage, box, color, 3);
-      cv::rectangle(myImage, cv::Point(box.x, box.y - 20), cv::Point(box.x + box.width, box.y), color, cv::FILLED);
+        auto box = boxes[i];
+        auto confidence = confidences[i];
+        auto classId = classIds[i];
+        const auto color = colors[classId % colors.size()];
+        cv::rectangle(frame, box, color, 3);
+        cv::rectangle(frame, cv::Point(box.x, box.y - 20), cv::Point(box.x + box.width, box.y), color, cv::FILLED);
+        
+        int box_x_min = box.x;
+        int box_x_max = box.x+box.width;
+        int box_y_min = box.y;
+        int box_y_max = box.y+box.height;
+        int center_x = box.x + (int)(box.width/2);
+        int center_y = box.y + (int)(box.height/2);
 
-      int box_x_min = box.x;
-      int box_x_max = box.x + box.width;
-      int box_y_min = box.y;
-      int box_y_max = box.y + box.height;
+        cv::circle(frame, cv::Point(center_x,center_y),5, cv::Scalar(0, 0, 255), -1);
 
-      /* box_x_min < x < box_x_max 와 box_y_min < y < box_y_max 를 만족시키는 (x,y) 값을 가지는
-      라이다의 원래 xyz값을 구해서
-
-      */
-      int center_x = box.x + (int)(box.width / 2);
-      int center_y = box.y + (int)(box.height / 2);
-
-      cv::circle(myImage, cv::Point(center_x, center_y), 5, cv::Scalar(0, 0, 255), -1);
-
-      char obj_msg[100];
-      sprintf(obj_msg, "%s:%.1f", class_list[classId].c_str(), confidence);
-      cv::putText(myImage, obj_msg, cv::Point(box.x, box.y - 5), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 0));
+        char obj_msg[100];
+        sprintf(obj_msg, "%s:%.1f", class_list[classId].c_str(), confidence );
+        cv::putText(frame, obj_msg, cv::Point(box.x, box.y - 5), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 0));
     }
 
     if (frame_cnt >= 30)
@@ -333,17 +374,16 @@ void projection_handler()
       fps_label << "[FPS] " << fps;
       std::string fps_label_str = fps_label.str();
 
-      cv::putText(myImage, fps_label_str.c_str(), cv::Point(10, 25), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 255), 2);
+        cv::putText(frame, fps_label_str.c_str(), cv::Point(10, 25), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 255), 2);
     }
 
     string windowName = "LiDAR data on image overlay";
     cv::namedWindow(windowName, 3);
-    cv::imshow(windowName, myImage);
-    if (cv::waitKey(1) == 'q')
-    {
-      capture.release();
-      std::cout << "finished by user\n";
-      break;
+    cv::imshow(windowName, frame);
+    if(cv::waitKey(1) == 'q'){
+        capture.release();
+        std::cout << "finished by user\n";
+        break;
     }
   }
   capture.release(); // Releasing the buffer memory//
@@ -561,17 +601,17 @@ int main(int argc, char *argv[])
   pcl_viewer->addPointCloud<pcl::PointXYZI>(pcl_pointcloud, "rslidar");
   pcl_viewer->setPointCloudRenderingProperties(PCL_VISUALIZER_POINT_SIZE, 2, "rslidar");
 
-  LidarDriver<pcl::PointXYZI> driver;  ///< Declare the driver object
-  RSDriverParam param;                 ///< Create a parameter object
-  param.input_param.read_pcap = false; ///< Set read_pcap to true
-  param.input_param.pcap_repeat = true;
-  param.input_param.pcap_path = "/home/sujin/Downloads/rs_driver-main_keyboard/demo/pcap_data/"
-                                "2022-05-27-incheon_right_assist.pcap"; ///< Set the pcap file directory
-  param.input_param.msop_port = 6699;                                   ///< Set the lidar msop port number, the default is 6699
-  param.wait_for_difop = false;
-  param.input_param.difop_port = 7788; ///< Set the lidar difop port number, the default is 7788
-  param.lidar_type = LidarType::RSM1;  ///< Set the lidar type. Make sure this type is correct
-  param.print();
+    LidarDriver<pcl::PointXYZI> driver;   ///< Declare the driver object
+    RSDriverParam param;                  ///< Create a parameter object
+
+    param.input_param.read_pcap = SIMULMODE_ON;  ///< Set read_pcap to true   
+    param.input_param.pcap_repeat = true;
+    param.input_param.pcap_path = PCAPFile;  ///< Set the pcap file directory
+    param.input_param.msop_port = LIDAR_MSOP_PORT;  ///< Set the lidar msop port number, the default is 6699
+    param.wait_for_difop = false;
+    param.input_param.difop_port = LIDAR_DIFOP_PORT;  ///< Set the lidar difop port number, the default is 7788
+    param.lidar_type = LidarType::RSM1;   ///< Set the lidar type. Make sure this type is correct
+    param.print();
 
   driver.regExceptionCallback(exceptionCallback); ///< Register the exception callback function into the driver
   driver.regRecvCallback(pointCloudCallback);     ///< Register the point cloud callback function into the driver
