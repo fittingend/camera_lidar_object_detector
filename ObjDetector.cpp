@@ -28,8 +28,8 @@ vector<pcl::PointXYZ> xyz_vector_main;
 vector<PointXYZ_CameraXY> test;
 #include "dbscan.h"
 
-#define MINIMUM_POINTS 15      // minimum number of cluster
-#define EPSILON (0.1 * 0.1 ) // distance for clustering, metre^2
+int MINIMUM_POINTS = 15;      // minimum number of cluster
+float EPSILON_INPUT = 0.6;
 
 /*
 ================================
@@ -64,8 +64,8 @@ string EXTRINSIC_PATH     = UserCfg.GetString("EXTRINSIC_PATH");
 float minZ_filter = -0.38;
 // float minZ_filter = -0.27;
 float maxZ_filter = 2;
-float minY_filter = -20;
-float maxY_filter = 20;
+float minY_filter = -5;
+float maxY_filter = 5;
 
 /*
 ===========================================
@@ -174,6 +174,20 @@ void keyboard_input_handler()
       else
         maxY_filter -= 0.1;
       std::cout << "maxY_filter : " << maxY_filter << std::endl;
+      break;
+    case 'e':
+      if (flag)
+        EPSILON_INPUT += 0.1;
+      else
+        EPSILON_INPUT -= 0.1;
+      std::cout << "EPSILON_INPUT : " << EPSILON_INPUT << std::endl;
+      break;
+    case 'p':
+      if (flag)
+        MINIMUM_POINTS += 10;
+      else
+        MINIMUM_POINTS -= 10;
+      std::cout << "MINIMUM_POINTS : " << MINIMUM_POINTS << std::endl;
       break;
     }
   }
@@ -392,7 +406,7 @@ using namespace robosense::lidar;
 using namespace pcl::visualization;
 std::shared_ptr<PCLVisualizer> pcl_viewer;
 
-float leafsize = 0.7;
+float leafsize = 0.4;
 float clusterTolerance = 1; // 1?
 int minClusterSize = 5;
 int maxClusterSize = 100;
@@ -426,6 +440,9 @@ void printResults(vector<Point>& points, int num_points)
 
 void pointCloudCallback(const PointCloudMsg<pcl::PointXYZI> &msg)
 {
+  auto start = std::chrono::high_resolution_clock::now();
+
+  
   // RS_MSG << "msg: " << msg.seq << " point cloud size: " << msg.point_cloud_ptr->size() << RS_REND;
   pcl::PointCloud<pcl::PointXYZI>::Ptr pcl_pointcloud(new pcl::PointCloud<pcl::PointXYZI>);
 
@@ -484,12 +501,12 @@ void pointCloudCallback(const PointCloudMsg<pcl::PointXYZI> &msg)
   pcl::VoxelGrid<pcl::PointXYZI> vg;
   pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_filtered_v2(new pcl::PointCloud<pcl::PointXYZI>);
   vg.setInputCloud(laserCloudIn.makeShared());
-  vg.setLeafSize(0.1, 0.1, 0.1);  // original 0.5f; the larger it is the more downsampled it gets
+  vg.setLeafSize(leafsize, leafsize, leafsize);  // original 0.5f; the larger it is the more downsampled it gets
   vg.filter(*cloud_filtered_v2);
 
   std::cout << "[ORI_PCL]" << pcl_pointcloud_filtered_yz->points.size() << std::endl;
   std::cout << "[INPUT_PCL]" << cloud_filtered_v2->points.size() << std::endl;
-  sleep(1);
+
   /* 오리지널 방식으로 클러스터링 시도*/
 
   // uint16_t obj_cnt =
@@ -515,23 +532,16 @@ void pointCloudCallback(const PointCloudMsg<pcl::PointXYZI> &msg)
   /* DBSCAN 으로 클러스터링 시도*/
 
   // constructor
-  std::cout << points.size() << std::endl;
-  DBSCAN ds(MINIMUM_POINTS, EPSILON, points);
-  std::cout << "[DBSCAN:m_minPoints] " << ds.m_minPoints << std::endl;
-  std::cout << "[DBSCAN:m_epsilon] " << ds.m_epsilon << std::endl;
-  std::cout << "[DBSCAN:m_pointSize] " << ds.m_pointSize << std::endl;
-  std::cout << "[DBSCAN:m_points[0]] " << ds.m_points[0].x << std::endl;
-
-
-  // main loop
-  ds.run();
+  float EPSILON = EPSILON_INPUT*EPSILON_INPUT;
+  DBSCAN dbscan(MINIMUM_POINTS, EPSILON, points);
+  dbscan.run();
 
   // result of DBSCAN algorithm
-  printResults(ds.m_points, ds.getTotalPointSize());
+  // printResults(ds.m_points, ds.getTotalPointSize());
 
-  for (int i=0; i < ds.getTotalPointSize(); i++)
+  for (int i=0; i < dbscan.getTotalPointSize(); i++)
   {
-    new_msg_returned.push_back(PointXYZIC(ds.m_points[i].x, ds.m_points[i].y, ds.m_points[i].z, ds.m_points[i].clusterID));
+    new_msg_returned.push_back(PointXYZIC(dbscan.m_points[i].x, dbscan.m_points[i].y, dbscan.m_points[i].z, dbscan.m_points[i].clusterID));
   }
 
   // colorize
