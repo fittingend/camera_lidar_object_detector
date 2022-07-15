@@ -192,6 +192,7 @@ void keyboard_input_handler()
     }
   }
 }
+
 void loadIntrinsic(cv::Mat& P_rect_00){
   FILE *ref = fopen(INTRINSIC_PATH.c_str(), "ro");
   char line[1024], c;
@@ -504,8 +505,8 @@ void pointCloudCallback(const PointCloudMsg<pcl::PointXYZI> &msg)
   vg.setLeafSize(leafsize, leafsize, leafsize);  // original 0.5f; the larger it is the more downsampled it gets
   vg.filter(*cloud_filtered_v2);
 
-  std::cout << "[ORI_PCL]" << pcl_pointcloud_filtered_yz->points.size() << std::endl;
-  std::cout << "[INPUT_PCL]" << cloud_filtered_v2->points.size() << std::endl;
+  // std::cout << "[ORI_PCL]" << pcl_pointcloud_filtered_yz->points.size() << std::endl;
+  // std::cout << "[INPUT_PCL]" << cloud_filtered_v2->points.size() << std::endl;
 
   /* 오리지널 방식으로 클러스터링 시도*/
 
