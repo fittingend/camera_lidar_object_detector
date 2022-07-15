@@ -1,3 +1,0 @@
-/home/sujin/work/ObjDetector_220713/build/CMakeFiles/rebuild_cache.dir
-/home/sujin/work/ObjDetector_220713/build/CMakeFiles/edit_cache.dir
-/home/sujin/work/ObjDetector_220713/build/CMakeFiles/ObjDetector.dir
