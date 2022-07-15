@@ -40,8 +40,6 @@ public:
     
 public:
     vector<Point> m_points;
-    
-private:    
     unsigned int m_pointSize;
     unsigned int m_minPoints;
     float m_epsilon;

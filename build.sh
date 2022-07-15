@@ -1,3 +1,3 @@
-mkdir build && cd build && rm *
+mkdir -p build && cd build && rm *
 cmake ..
 make -j24

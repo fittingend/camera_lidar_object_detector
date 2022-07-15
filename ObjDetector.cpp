@@ -28,8 +28,8 @@ vector<pcl::PointXYZ> xyz_vector_main;
 vector<PointXYZ_CameraXY> test;
 #include "dbscan.h"
 
-#define MINIMUM_POINTS 4      // minimum number of cluster
-#define EPSILON (0.75 * 0.75) // distance for clustering, metre^2
+#define MINIMUM_POINTS 15      // minimum number of cluster
+#define EPSILON (0.1 * 0.1 ) // distance for clustering, metre^2
 
 /*
 ================================
@@ -479,14 +479,17 @@ void pointCloudCallback(const PointCloudMsg<pcl::PointXYZI> &msg)
   yfilter.filter(*pcl_pointcloud_filtered_yz);
 
   // voxel test
-  //  pcl::PointCloud<pcl::PointXYZI> laserCloudIn = *pcl_pointcloud;
+  pcl::PointCloud<pcl::PointXYZI> laserCloudIn = *pcl_pointcloud_filtered_yz;
 
-  // pcl::VoxelGrid<pcl::PointXYZI> vg;
-  // pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_filtered_v2(new pcl::PointCloud<pcl::PointXYZI>);
-  // vg.setInputCloud(laserCloudIn.makeShared());
-  // vg.setLeafSize(0.9, 0.9, 0.9);  // original 0.5f; the larger it is the more downsampled it gets
-  // vg.filter(*cloud_filtered_v2);
+  pcl::VoxelGrid<pcl::PointXYZI> vg;
+  pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_filtered_v2(new pcl::PointCloud<pcl::PointXYZI>);
+  vg.setInputCloud(laserCloudIn.makeShared());
+  vg.setLeafSize(0.1, 0.1, 0.1);  // original 0.5f; the larger it is the more downsampled it gets
+  vg.filter(*cloud_filtered_v2);
 
+  std::cout << "[ORI_PCL]" << pcl_pointcloud_filtered_yz->points.size() << std::endl;
+  std::cout << "[INPUT_PCL]" << cloud_filtered_v2->points.size() << std::endl;
+  sleep(1);
   /* 오리지널 방식으로 클러스터링 시도*/
 
   // uint16_t obj_cnt =
@@ -494,24 +497,31 @@ void pointCloudCallback(const PointCloudMsg<pcl::PointXYZI> &msg)
 
   vector<Point> points;
 
-  Point *p = (Point *)calloc(pcl_pointcloud_filtered_yz->points.size(), sizeof(Point));
+  Point *p = (Point *)calloc(cloud_filtered_v2->points.size(), sizeof(Point));
 
-  for (int i = 0; i < pcl_pointcloud_filtered_yz->points.size(); i++)
+  for (int i = 0; i < cloud_filtered_v2->points.size(); i++)
   {
-    p[i].x = pcl_pointcloud_filtered_yz->points[i].x;
-    p[i].y = pcl_pointcloud_filtered_yz->points[i].y;
-    p[i].z = pcl_pointcloud_filtered_yz->points[i].z;
+    p[i].x = cloud_filtered_v2->points[i].x;
+    p[i].y = cloud_filtered_v2->points[i].y;
+    p[i].z = cloud_filtered_v2->points[i].z;
     p[i].clusterID = UNCLASSIFIED;
     points.push_back(p[i]);
-    cout << p[i].x <<endl;
+    // cout << p[i].x <<endl;
 
     //    points.push_back(pcl_pointcloud_filtered_yz->points[i].x, pcl_pointcloud_filtered_yz->points[i].y,pcl_pointcloud_filtered_yz->points[i].z, UNCLASSIFIED);
   }
+  free(p);
 
   /* DBSCAN 으로 클러스터링 시도*/
 
   // constructor
+  std::cout << points.size() << std::endl;
   DBSCAN ds(MINIMUM_POINTS, EPSILON, points);
+  std::cout << "[DBSCAN:m_minPoints] " << ds.m_minPoints << std::endl;
+  std::cout << "[DBSCAN:m_epsilon] " << ds.m_epsilon << std::endl;
+  std::cout << "[DBSCAN:m_pointSize] " << ds.m_pointSize << std::endl;
+  std::cout << "[DBSCAN:m_points[0]] " << ds.m_points[0].x << std::endl;
+
 
   // main loop
   ds.run();
