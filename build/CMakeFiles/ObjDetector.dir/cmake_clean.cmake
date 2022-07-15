@@ -5,6 +5,7 @@ file(REMOVE_RECURSE
   "CMakeFiles/ObjDetector.dir/lib/lidar_worker.cpp.o"
   "CMakeFiles/ObjDetector.dir/lib/udp_worker.cpp.o"
   "CMakeFiles/ObjDetector.dir/src/ConfigParser.cpp.o"
+  "CMakeFiles/ObjDetector.dir/src/dbscan.cpp.o"
   "CMakeFiles/ObjDetector.dir/src/visualization.cpp.o"
   "ObjDetector"
   "ObjDetector.pdb"

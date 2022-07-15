@@ -285,6 +285,33 @@ src/ConfigParser.cpp.s:
 	$(MAKE) -f CMakeFiles/ObjDetector.dir/build.make CMakeFiles/ObjDetector.dir/src/ConfigParser.cpp.s
 .PHONY : src/ConfigParser.cpp.s
 
+src/dbscan.o: src/dbscan.cpp.o
+
+.PHONY : src/dbscan.o
+
+# target to build an object file
+src/dbscan.cpp.o:
+	$(MAKE) -f CMakeFiles/ObjDetector.dir/build.make CMakeFiles/ObjDetector.dir/src/dbscan.cpp.o
+.PHONY : src/dbscan.cpp.o
+
+src/dbscan.i: src/dbscan.cpp.i
+
+.PHONY : src/dbscan.i
+
+# target to preprocess a source file
+src/dbscan.cpp.i:
+	$(MAKE) -f CMakeFiles/ObjDetector.dir/build.make CMakeFiles/ObjDetector.dir/src/dbscan.cpp.i
+.PHONY : src/dbscan.cpp.i
+
+src/dbscan.s: src/dbscan.cpp.s
+
+.PHONY : src/dbscan.s
+
+# target to generate assembly for a file
+src/dbscan.cpp.s:
+	$(MAKE) -f CMakeFiles/ObjDetector.dir/build.make CMakeFiles/ObjDetector.dir/src/dbscan.cpp.s
+.PHONY : src/dbscan.cpp.s
+
 src/visualization.o: src/visualization.cpp.o
 
 .PHONY : src/visualization.o
@@ -339,6 +366,9 @@ help:
 	@echo "... src/ConfigParser.o"
 	@echo "... src/ConfigParser.i"
 	@echo "... src/ConfigParser.s"
+	@echo "... src/dbscan.o"
+	@echo "... src/dbscan.i"
+	@echo "... src/dbscan.s"
 	@echo "... src/visualization.o"
 	@echo "... src/visualization.i"
 	@echo "... src/visualization.s"

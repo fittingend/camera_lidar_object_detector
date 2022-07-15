@@ -25,6 +25,11 @@
 #include "yolo.h"
 
 vector<pcl::PointXYZ> xyz_vector_main;
+vector<PointXYZ_CameraXY> test;
+#include "dbscan.h"
+
+#define MINIMUM_POINTS 4      // minimum number of cluster
+#define EPSILON (0.75 * 0.75) // distance for clustering, metre^2
 
 /*
 ================================
@@ -248,6 +253,7 @@ void projection_handler()
     model.detect(myImage, classIds, confidences, boxes, .2, .4);
     total_frames++;
     frame_cnt++;
+    int i = 0;
 
     for (auto it = xyz_vector_main.begin(); it != xyz_vector_main.end(); ++it)
     {
@@ -276,6 +282,9 @@ void projection_handler()
       int green = min(255, (int)(255 * (1 - abs((val - maxVal) / maxVal))));
 
       cv::circle(myImage, pt, 1, cv::Scalar(0, green, red), -1);
+      test.push_back(PointXYZ_CameraXY(it->x, it->y, it->z, pt.x, pt.y));
+      //      cout << test[i].m_x << ", " << test[i].m_y << ", " <<test[i].m_z<< endl;
+      i++;
     }
 
     int detections = classIds.size();
@@ -352,13 +361,22 @@ std::mutex mex_viewer;
 void colorize(const pcl::PointCloud<PointXYZIC> &pc, pcl::PointCloud<pcl::PointXYZRGB> &pc_colored,
               const std::vector<int> &color);
 
-struct PointXYZI ///< user defined point type
+void printResults(vector<Point>& points, int num_points)
 {
-  float x;
-  float y;
-  float z;
-  uint8_t intensity;
-};
+    int i = 0;
+    printf("Number of points: %u\n"
+        " x     y     z     cluster_id\n"
+        "-----------------------------\n"
+        , num_points);
+    while (i < num_points)
+    {
+          printf("%5.2lf %5.2lf %5.2lf: %d\n",
+                 points[i].x,
+                 points[i].y, points[i].z,
+                 points[i].clusterID);
+          ++i;
+    }
+}
 
 /**
  * @brief The point cloud callback function. This function will be registered to lidar driver.
@@ -429,8 +447,42 @@ void pointCloudCallback(const PointCloudMsg<pcl::PointXYZI> &msg)
   // vg.setLeafSize(0.9, 0.9, 0.9);  // original 0.5f; the larger it is the more downsampled it gets
   // vg.filter(*cloud_filtered_v2);
 
-  uint16_t obj_cnt =
-      lidar_clustering("hello", pcl_pointcloud_filtered_yz, new_msg_returned); // Lidar clustering  진행
+  /* 오리지널 방식으로 클러스터링 시도*/
+
+  // uint16_t obj_cnt =
+  //     lidar_clustering("hello", pcl_pointcloud_filtered_yz, new_msg_returned); // Lidar clustering  진행
+
+  vector<Point> points;
+
+  Point *p = (Point *)calloc(pcl_pointcloud_filtered_yz->points.size(), sizeof(Point));
+
+  for (int i = 0; i < pcl_pointcloud_filtered_yz->points.size(); i++)
+  {
+    p[i].x = pcl_pointcloud_filtered_yz->points[i].x;
+    p[i].y = pcl_pointcloud_filtered_yz->points[i].y;
+    p[i].z = pcl_pointcloud_filtered_yz->points[i].z;
+    p[i].clusterID = UNCLASSIFIED;
+    points.push_back(p[i]);
+    cout << p[i].x <<endl;
+
+    //    points.push_back(pcl_pointcloud_filtered_yz->points[i].x, pcl_pointcloud_filtered_yz->points[i].y,pcl_pointcloud_filtered_yz->points[i].z, UNCLASSIFIED);
+  }
+
+  /* DBSCAN 으로 클러스터링 시도*/
+
+  // constructor
+  DBSCAN ds(MINIMUM_POINTS, EPSILON, points);
+
+  // main loop
+  ds.run();
+
+  // result of DBSCAN algorithm
+  printResults(ds.m_points, ds.getTotalPointSize());
+
+  for (int i=0; i < ds.getTotalPointSize(); i++)
+  {
+    new_msg_returned.push_back(PointXYZIC(ds.m_points[i].x, ds.m_points[i].y, ds.m_points[i].z, ds.m_points[i].clusterID));
+  }
 
   // colorize
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr tgt_colored(new pcl::PointCloud<pcl::PointXYZRGB>);
@@ -438,17 +490,17 @@ void pointCloudCallback(const PointCloudMsg<pcl::PointXYZI> &msg)
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr combined_colored(new pcl::PointCloud<pcl::PointXYZRGB>);
 
   *clustering_msg = new_msg_returned;
-   xyz_vector_main.clear();  
+  xyz_vector_main.clear();
 
   // std::cout << clustering_msg->points.size() << std::endl;
   for (int i = 0; i < clustering_msg->points.size(); i++)
   {
 
     xyz_vector_main.push_back(pcl::PointXYZ(clustering_msg->points[i].x, clustering_msg->points[i].y, clustering_msg->points[i].z));
-//      xyz_vector_main[i].x = clustering_msg->points[i].x;
-//      xyz_vector_main[i].y = clustering_msg->points[i].y;
-//      xyz_vector_main[i].z = clustering_msg->points[i].z;
-//      xyz_vector_main[i].intensity = clustering_msg->points[i].intensity;
+    //      xyz_vector_main[i].x = clustering_msg->points[i].x;
+    //      xyz_vector_main[i].y = clustering_msg->points[i].y;
+    //      xyz_vector_main[i].z = clustering_msg->points[i].z;
+    //      xyz_vector_main[i].intensity = clustering_msg->points[i].intensity;
   }
 
   // Point cloud XYZ에 RGB 칼라 추가하기
