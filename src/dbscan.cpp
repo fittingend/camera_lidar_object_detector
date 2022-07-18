@@ -20,7 +20,8 @@ int DBSCAN::run()
             }
         }
     }
-    return 0;
+//    return 0; //original
+    return clusterID;
 }
 
 int DBSCAN::expandCluster(Point point, int clusterID)
