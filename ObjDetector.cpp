@@ -28,8 +28,13 @@ vector<pcl::PointXYZ> xyz_vector_main;
 vector<PointXYZ_CameraXY> test;
 #include "dbscan.h"
 
-int MINIMUM_POINTS = 15;      // minimum number of cluster
-float EPSILON_INPUT = 0.6;
+using namespace robosense::lidar;
+using namespace pcl::visualization;
+std::shared_ptr<PCLVisualizer> pcl_viewer;
+
+std::mutex mex_viewer;
+void colorize(const pcl::PointCloud<PointXYZIC> &pc, pcl::PointCloud<pcl::PointXYZRGB> &pc_colored,
+              const std::vector<int> &color);
 
 /*
 ================================
@@ -48,6 +53,16 @@ int LIDAR_MSOP_PORT  = UserCfg.GetInt("LIDAR_MSOP_PORT");
 int LIDAR_DIFOP_PORT = UserCfg.GetInt("LIDAR_DIFOP_PORT");
 
 float SCALE_FACTOR     = UserCfg.GetFloat("SCALE_FACTOR");
+float MIN_X            = UserCfg.GetFloat("MIN_X");
+float MAX_X            = UserCfg.GetFloat("MAX_X");
+float MIN_Y            = UserCfg.GetFloat("MIN_Y");
+float MAX_Y            = UserCfg.GetFloat("MAX_Y");
+float MIN_Z            = UserCfg.GetFloat("MIN_Z");
+float MAX_Z            = UserCfg.GetFloat("MAX_Z");
+float LEAFSIZE         = UserCfg.GetFloat("LEAFSIZE");
+
+int DBSCAN_MINIMUM_POINTS  = UserCfg.GetInt("DBSCAN_MINIMUM_POINTS");
+float DBSCAN_EPSILON       = UserCfg.GetFloat("DBSCAN_EPSILON");
 
 string WEIGHTS_PATH     = UserCfg.GetString("WEIGHTS_PATH");
 string CFG_PATH         = UserCfg.GetString("CFG_PATH");
@@ -61,11 +76,29 @@ string EXTRINSIC_PATH     = UserCfg.GetString("EXTRINSIC_PATH");
 최적화된 라이다 xyz축 필터값
 ================================
 */
-float minZ_filter = -0.38;
+float minZ_filter = MIN_Z;
 // float minZ_filter = -0.27;
-float maxZ_filter = 2;
-float minY_filter = -5;
-float maxY_filter = 5;
+float maxZ_filter = MAX_Z;
+float minY_filter = MIN_Y;
+float maxY_filter = MAX_Y;
+float leafsize = LEAFSIZE;
+
+/*
+================================
+DBSCAN
+================================
+*/
+int MINIMUM_POINTS = DBSCAN_MINIMUM_POINTS;      // minimum number of cluster
+float EPSILON_INPUT = DBSCAN_EPSILON;
+
+/*
+================================
+K-MEANS(?)
+================================
+*/
+float clusterTolerance = 1; // 1?
+int minClusterSize = 5;
+int maxClusterSize = 100;
 
 /*
 ===========================================
@@ -103,6 +136,11 @@ _________________________________________
 6       | maxZ_filter 를 0.1 단위로 변화
 7       | minY_filter 를 0.1 단위로 변화
 8       | maxY_filter 를 0.1 단위로 변화
+
+p       | DBSCAN_MINIMUM_POINTS 를 0.1 단위로 변화
+p       | DBSCAN_MINIMUM_POINTS 를 0.1 단위로 변화
+e       | DBSCAN_EPSILON 를 0.1 단위로 변화
+e       | DBSCAN_EPSILON 를 0.1 단위로 변화
 ===================================
 */
 
@@ -258,6 +296,7 @@ void loadExtrinsic(cv::Mat& RT){
 
 void projection_handler()
 {
+  uint16_t videofps = 0;
   uint32_t frame_cnt = 0, total_frames = 0;
   float fps = 0.;
 
@@ -266,6 +305,7 @@ void projection_handler()
 
   if(SIMULMODE_ON){
     capture.open(VideoFile);
+    videofps = capture.get(cv::CAP_PROP_FPS);
       //capture.set(cv::CAP_PROP_FRAME_WIDTH, 800);
       //capture.set(cv::CAP_PROP_FRAME_HEIGHT, 600);
   }
@@ -302,7 +342,9 @@ void projection_handler()
 
   auto start = std::chrono::high_resolution_clock::now();
   while (true)
-  {  
+  {
+    auto fps_start = std::chrono::high_resolution_clock::now();
+
     capture.read(frame);
     if (frame.empty()) break; // Breaking the loop if no video frame is detected.
 
@@ -389,32 +431,42 @@ void projection_handler()
       fps_label << "[FPS] " << fps;
       std::string fps_label_str = fps_label.str();
 
-        cv::putText(frame, fps_label_str.c_str(), cv::Point(10, 25), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 255), 2);
+      cv::putText(frame, fps_label_str.c_str(), cv::Point(10, 25), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 255), 2);
     }
 
     string windowName = "LiDAR data on image overlay";
     cv::namedWindow(windowName, 3);
     cv::imshow(windowName, frame);
-    if(cv::waitKey(1) == 'q'){
+    
+    float tmp = (1000.0/videofps)-1.0;
+    if(SIMULMODE_ON){
+      auto fps_end = std::chrono::high_resolution_clock::now();
+      auto curr_fps = std::chrono::duration_cast<std::chrono::microseconds>(fps_end - fps_start).count()/1000.0;
+      // std::cout << curr_fps << "/" << tmp << std::endl;
+      while(curr_fps < tmp){
+        fps_end = std::chrono::high_resolution_clock::now();
+        curr_fps = std::chrono::duration_cast<std::chrono::microseconds>(fps_end - fps_start).count()/1000.0;
+        // std::cout << curr_fps << "/" << tmp << std::endl;
+        if(cv::waitKey(1) == 'q'){
+          capture.release();
+          std::cout << "finished by user\n";
+          break;
+        }
+      }
+    }
+    else{
+      if(cv::waitKey(1) == 'q'){
         capture.release();
         std::cout << "finished by user\n";
         break;
+      }
     }
+
+    // std::cout << "--------------------\n";
   }
-  capture.release(); // Releasing the buffer memory//
+
+  capture.release(); // Releasing the buffer memory
 }
-using namespace robosense::lidar;
-using namespace pcl::visualization;
-std::shared_ptr<PCLVisualizer> pcl_viewer;
-
-float leafsize = 0.4;
-float clusterTolerance = 1; // 1?
-int minClusterSize = 5;
-int maxClusterSize = 100;
-
-std::mutex mex_viewer;
-void colorize(const pcl::PointCloud<PointXYZIC> &pc, pcl::PointCloud<pcl::PointXYZRGB> &pc_colored,
-              const std::vector<int> &color);
 
 void printResults(vector<Point>& points, int num_points)
 {
