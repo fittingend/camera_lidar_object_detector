@@ -24,7 +24,8 @@
 #include "ConfigParser.h"
 #include "yolo.h"
 
-vector<pcl::PointXYZ> xyz_vector_main;
+// vector<pcl::PointXYZ> xyz_vector_main;
+vector<PointXYZC> xyz_vector_main;
 vector<PointXYZ_CameraXY> test;
 #include "dbscan.h"
 
@@ -52,17 +53,17 @@ int CAM_PORT = UserCfg.GetInt("CAM_PORT");
 int LIDAR_MSOP_PORT = UserCfg.GetInt("LIDAR_MSOP_PORT");
 int LIDAR_DIFOP_PORT = UserCfg.GetInt("LIDAR_DIFOP_PORT");
 
-float SCALE_FACTOR     = UserCfg.GetFloat("SCALE_FACTOR");
-float MIN_X            = UserCfg.GetFloat("MIN_X");
-float MAX_X            = UserCfg.GetFloat("MAX_X");
-float MIN_Y            = UserCfg.GetFloat("MIN_Y");
-float MAX_Y            = UserCfg.GetFloat("MAX_Y");
-float MIN_Z            = UserCfg.GetFloat("MIN_Z");
-float MAX_Z            = UserCfg.GetFloat("MAX_Z");
-float LEAFSIZE         = UserCfg.GetFloat("LEAFSIZE");
+float SCALE_FACTOR = UserCfg.GetFloat("SCALE_FACTOR");
+float MIN_X = UserCfg.GetFloat("MIN_X");
+float MAX_X = UserCfg.GetFloat("MAX_X");
+float MIN_Y = UserCfg.GetFloat("MIN_Y");
+float MAX_Y = UserCfg.GetFloat("MAX_Y");
+float MIN_Z = UserCfg.GetFloat("MIN_Z");
+float MAX_Z = UserCfg.GetFloat("MAX_Z");
+float LEAFSIZE = UserCfg.GetFloat("LEAFSIZE");
 
-int DBSCAN_MINIMUM_POINTS  = UserCfg.GetInt("DBSCAN_MINIMUM_POINTS");
-float DBSCAN_EPSILON       = UserCfg.GetFloat("DBSCAN_EPSILON");
+int DBSCAN_MINIMUM_POINTS = UserCfg.GetInt("DBSCAN_MINIMUM_POINTS");
+float DBSCAN_EPSILON = UserCfg.GetFloat("DBSCAN_EPSILON");
 
 string WEIGHTS_PATH = UserCfg.GetString("WEIGHTS_PATH");
 string CFG_PATH = UserCfg.GetString("CFG_PATH");
@@ -70,6 +71,8 @@ string CLASSES_PATH = UserCfg.GetString("CLASSES_PATH");
 
 string INTRINSIC_PATH = UserCfg.GetString("INTRINSIC_PATH");
 string EXTRINSIC_PATH = UserCfg.GetString("EXTRINSIC_PATH");
+
+bool start_flag = 0;
 
 /*
 ================================
@@ -88,9 +91,9 @@ float leafsize = LEAFSIZE;
 DBSCAN
 ================================
 */
-int MINIMUM_POINTS = DBSCAN_MINIMUM_POINTS;      // minimum number of cluster
+int MINIMUM_POINTS = DBSCAN_MINIMUM_POINTS; // minimum number of cluster
 float EPSILON_INPUT = DBSCAN_EPSILON;
-
+int totalClusterCount;
 /*
 ================================
 K-MEANS(?)
@@ -295,6 +298,47 @@ void loadExtrinsic(cv::Mat &RT)
   printf("%lf %lf %lf %lf\n", RT.at<double>(3, 0), RT.at<double>(3, 1), RT.at<double>(3, 2), RT.at<double>(3, 3));
 }
 
+vector<distance_ClusterID> manim;
+void boxComputetoLidar(int camera_x, int camera_y, int box_width, int box_height) // box's border coordinates passed
+{
+  manim.clear();
+  // int k = 0;
+  float min_distance_per_box = 100;
+  for (int i = 0; i < xyz_vector_main.size(); i++) // clustering_msg->points.size()
+  {
+    if (camera_x < test[i].m_camera_x < camera_x + box_width && camera_y < test[i].m_camera_y < camera_y + box_height && test[i].m_clusterID > 0)
+    {
+      cout << "cluster ID is: " << test[i].m_clusterID << endl;
+      /*
+      1. box 안에 해당되는 (x,y) 값 스캔하면서
+      1.1. cluster ID 별로 distance 저장
+      1.2.
+      3. (x,y) 값을 바탕으로 라이다 (x,y,z) 구하기
+      4. cluster ID 가 같은지 확인?
+      5.
+      4. 박스에 해당하는 거리값 return 하기
+      */
+      float distance = sqrt(pow(test[i].m_x, 2) + pow(test[i].m_y, 2));
+      cout << "distance is " << distance << endl;
+      cout << "min_distance_per_box is" << min_distance_per_box << endl;
+
+      // if (i == 0)
+      // {
+      //   min_distance_per_box = distance;
+      // }
+      // else
+
+      if (distance < min_distance_per_box && distance != 0)
+        min_distance_per_box = distance;
+
+      // manim.push_back(distance_ClusterID(sqrt(pow(test[k].m_x, 2) + pow(test[k].m_y, 2)), test[k].m_clusterID));
+      // cout << "distance: " << manim[k].m_distance << "Object ID: " << manim[k].m_clusterID << "/" << totalClusterCount << endl;
+      // k++;
+    }
+  }
+  cout << "min_distance_per_box is " << min_distance_per_box << endl;
+}
+
 void projection_handler()
 {
   uint16_t videofps = 0;
@@ -308,7 +352,7 @@ void projection_handler()
   {
     capture.open(VideoFile);
     videofps = capture.get(cv::CAP_PROP_FPS);
-      //capture.set(cv::CAP_PROP_FRAME_WIDTH, 800);
+    // capture.set(cv::CAP_PROP_FRAME_WIDTH, 800);
   }
   else
   {
@@ -344,13 +388,18 @@ void projection_handler()
   cv::Mat Y(3, 1, cv::DataType<double>::type);
 
   auto start = std::chrono::high_resolution_clock::now();
+  start_flag = 1;
   while (true)
   {
     auto fps_start = std::chrono::high_resolution_clock::now();
 
     capture.read(frame);
-    if (frame.empty())
-      break; // Breaking the loop if no video frame is detected.
+    if (frame.empty()){
+      capture.set(cv::CAP_PROP_POS_FRAMES, 0);
+    //  videofps = capture.get(cv::CAP_PROP_FPS);
+      // break; // Breaking the loop if no video frame is detected.
+    }
+      
 
     cv::resize(frame, frame, cv::Size((int)(frame.cols / SCALE_FACTOR) + 1, (int)(frame.rows / SCALE_FACTOR) + 1));
 
@@ -389,7 +438,7 @@ void projection_handler()
       int green = min(255, (int)(255 * (1 - abs((val - maxVal) / maxVal))));
 
       cv::circle(frame, pt, 1, cv::Scalar(0, green, red), -1);
-      test.push_back(PointXYZ_CameraXY(it->x, it->y, it->z, pt.x, pt.y));
+      test.push_back(PointXYZ_CameraXY(it->x, it->y, it->z, pt.x, pt.y, it->clusterID));
       //      cout << test[i].m_x << ", " << test[i].m_y << ", " <<test[i].m_z<< endl;
       i++;
     }
@@ -402,6 +451,7 @@ void projection_handler()
       auto confidence = confidences[i];
       auto classId = classIds[i];
       const auto color = colors[classId % colors.size()];
+
       cv::rectangle(frame, box, color, 3);
       cv::rectangle(frame, cv::Point(box.x, box.y - 20), cv::Point(box.x + box.width, box.y), color, cv::FILLED);
 
@@ -411,6 +461,9 @@ void projection_handler()
       int box_y_max = box.y + box.height;
       int center_x = box.x + (int)(box.width / 2);
       int center_y = box.y + (int)(box.height / 2);
+
+      if(classId == 0 || classId == 2) // person or car
+        boxComputetoLidar(box.x, box.y, box.width, box.height);
 
       cv::circle(frame, cv::Point(center_x, center_y), 5, cv::Scalar(0, 0, 255), -1);
 
@@ -441,25 +494,30 @@ void projection_handler()
     string windowName = "LiDAR data on image overlay";
     cv::namedWindow(windowName, 3);
     cv::imshow(windowName, frame);
-    
-    float tmp = (1000.0/videofps)-1.0;
-    if(SIMULMODE_ON){
+
+    float tmp = (1000.0 / videofps) - 1.0;
+    if (SIMULMODE_ON)
+    {
       auto fps_end = std::chrono::high_resolution_clock::now();
-      auto curr_fps = std::chrono::duration_cast<std::chrono::microseconds>(fps_end - fps_start).count()/1000.0;
+      auto curr_fps = std::chrono::duration_cast<std::chrono::microseconds>(fps_end - fps_start).count() / 1000.0;
       // std::cout << curr_fps << "/" << tmp << std::endl;
-      while(curr_fps < tmp){
+      while (curr_fps < tmp)
+      {
         fps_end = std::chrono::high_resolution_clock::now();
-        curr_fps = std::chrono::duration_cast<std::chrono::microseconds>(fps_end - fps_start).count()/1000.0;
+        curr_fps = std::chrono::duration_cast<std::chrono::microseconds>(fps_end - fps_start).count() / 1000.0;
         // std::cout << curr_fps << "/" << tmp << std::endl;
-        if(cv::waitKey(1) == 'q'){
+        if (cv::waitKey(1) == 'q')
+        {
           capture.release();
           std::cout << "finished by user\n";
           break;
         }
       }
     }
-    else{
-      if(cv::waitKey(1) == 'q'){
+    else
+    {
+      if (cv::waitKey(1) == 'q')
+      {
         capture.release();
         std::cout << "finished by user\n";
         break;
@@ -491,17 +549,13 @@ void printResults(vector<Point> &points, int num_points)
 
 void printResults1(vector<Point> &points, int i)
 {
-    printf(" x     y     z     cluster_id\n"
-         "-----------------------------\n"
-         );
-    printf("%5.2lf %5.2lf %5.2lf: %d\n",
-           points[i].x,
-           points[i].y, points[i].z,
-           points[i].clusterID);
-
+  printf(" x     y     z     cluster_id\n"
+         "-----------------------------\n");
+  printf("%5.2lf %5.2lf %5.2lf: %d\n",
+         points[i].x,
+         points[i].y, points[i].z,
+         points[i].clusterID);
 }
-
-
 
 void printClusteredObject(int totalClusterCount, vector<Point> &points, int num_points)
 {
@@ -512,7 +566,7 @@ void printClusteredObject(int totalClusterCount, vector<Point> &points, int num_
     {
       if (points[i].clusterID == j)
       {
-        printResults1(points, i);
+        //          printResults1(points, i);
       }
       i++;
     }
@@ -555,14 +609,6 @@ void pointCloudCallback(const PointCloudMsg<pcl::PointXYZI> &msg)
 
   // cout << pcl_pointcloud->points.size() << endl;
 
-  //오리지널 PCL 프로젝션용 vector에 assign
-  // for (int i = 0; i < pcl_pointcloud->points.size(); i++)
-  // {
-  //   xyz_vector_main[i].x = pcl_pointcloud->points[i].x;
-  //   xyz_vector_main[i].y = pcl_pointcloud->points[i].y;
-  //   xyz_vector_main[i].z = pcl_pointcloud->points[i].z;
-  // }
-
   // passthorugh 로 포인트 클라우드 값 필터
   //  X 축으로 filtering
   //  중앙 부분 추출
@@ -590,45 +636,54 @@ void pointCloudCallback(const PointCloudMsg<pcl::PointXYZI> &msg)
   vg.setLeafSize(leafsize, leafsize, leafsize); // original 0.5f; the larger it is the more downsampled it gets
   vg.filter(*cloud_filtered_v2);
 
-  //std::cout << "[ORI_PCL]" << pcl_pointcloud_filtered_yz->points.size() << std::endl;
-  //std::cout << "[INPUT_PCL]" << cloud_filtered_v2->points.size() << std::endl;
+  // std::cout << "[ORI_PCL]" << pcl_pointcloud_filtered_yz->points.size() << std::endl;
+  // std::cout << "[INPUT_PCL]" << cloud_filtered_v2->points.size() << std::endl;
 
   /* 오리지널 방식으로 클러스터링 시도*/
 
   // uint16_t obj_cnt =
   //     lidar_clustering("hello", pcl_pointcloud_filtered_yz, new_msg_returned); // Lidar clustering  진행
 
-  vector<Point> points;
+  // vector<Point> points;
 
-  Point *p = (Point *)calloc(cloud_filtered_v2->points.size(), sizeof(Point));
+  // Point *p = (Point *)calloc(cloud_filtered_v2->points.size(), sizeof(Point));
 
-  for (int i = 0; i < cloud_filtered_v2->points.size(); i++)
-  {
-    p[i].x = cloud_filtered_v2->points[i].x;
-    p[i].y = cloud_filtered_v2->points[i].y;
-    p[i].z = cloud_filtered_v2->points[i].z;
-    p[i].clusterID = UNCLASSIFIED;
-    points.push_back(p[i]);
-    // cout << p[i].x <<endl;
+  // for (int i = 0; i < cloud_filtered_v2->points.size(); i++)
+  // {
+  //   p[i].x = cloud_filtered_v2->points[i].x;
+  //   p[i].y = cloud_filtered_v2->points[i].y;
+  //   p[i].z = cloud_filtered_v2->points[i].z;
+  //   p[i].clusterID = UNCLASSIFIED;
+  //   points.push_back(p[i]);
+  //   // cout << p[i].x <<endl;
 
-    //    points.push_back(pcl_pointcloud_filtered_yz->points[i].x, pcl_pointcloud_filtered_yz->points[i].y,pcl_pointcloud_filtered_yz->points[i].z, UNCLASSIFIED);
-  }
-  free(p);
+  //   //    points.push_back(pcl_pointcloud_filtered_yz->points[i].x, pcl_pointcloud_filtered_yz->points[i].y,pcl_pointcloud_filtered_yz->points[i].z, UNCLASSIFIED);
+  // }
+  // free(p);
 
   /* DBSCAN 으로 클러스터링 시도*/
 
   // constructor
-  float EPSILON = EPSILON_INPUT * EPSILON_INPUT;
-  DBSCAN dbscan(MINIMUM_POINTS, EPSILON, points);
-  int totalClusterCount = dbscan.run();
+  // float EPSILON = EPSILON_INPUT * EPSILON_INPUT;
+  // DBSCAN dbscan(MINIMUM_POINTS, EPSILON, points);
+  // totalClusterCount = dbscan.run();
 
   // result of DBSCAN algorithm
-  //printResults(dbscan.m_points, dbscan.getTotalPointSize());
-  printClusteredObject(totalClusterCount, dbscan.m_points, dbscan.getTotalPointSize());
+  // printResults(dbscan.m_points, dbscan.getTotalPointSize());
+  // printClusteredObject(totalClusterCount, dbscan.m_points, dbscan.getTotalPointSize());
+  xyz_vector_main.clear();
 
-  for (int i = 0; i < dbscan.getTotalPointSize(); i++)
+  // for (int i = 0; i < dbscan.getTotalPointSize(); i++)
+  // {
+  //   new_msg_returned.push_back(PointXYZIC(dbscan.m_points[i].x, dbscan.m_points[i].y, dbscan.m_points[i].z, dbscan.m_points[i].clusterID));
+  //   xyz_vector_main.push_back(PointXYZC(dbscan.m_points[i].x, dbscan.m_points[i].y, dbscan.m_points[i].z, dbscan.m_points[i].clusterID));
+  // }
+
+  // 오리지널 PCL 프로젝션용 vector에 assign
+  for (int i = 0; i < cloud_filtered_v2->points.size(); i++)
   {
-    new_msg_returned.push_back(PointXYZIC(dbscan.m_points[i].x, dbscan.m_points[i].y, dbscan.m_points[i].z, dbscan.m_points[i].clusterID));
+    new_msg_returned.push_back(PointXYZIC(cloud_filtered_v2->points[i].x, cloud_filtered_v2->points[i].y, cloud_filtered_v2->points[i].z, 1));
+    xyz_vector_main.push_back(PointXYZC(cloud_filtered_v2->points[i].x, cloud_filtered_v2->points[i].y, cloud_filtered_v2->points[i].z, 1));
   }
 
   // colorize
@@ -637,18 +692,13 @@ void pointCloudCallback(const PointCloudMsg<pcl::PointXYZI> &msg)
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr combined_colored(new pcl::PointCloud<pcl::PointXYZRGB>);
 
   *clustering_msg = new_msg_returned;
-  xyz_vector_main.clear();
 
-  // std::cout << clustering_msg->points.size() << std::endl;
-  for (int i = 0; i < clustering_msg->points.size(); i++)
-  {
+  // for (int i = 0; i < clustering_msg->points.size(); i++)
+  // {
 
-    xyz_vector_main.push_back(pcl::PointXYZ(clustering_msg->points[i].x, clustering_msg->points[i].y, clustering_msg->points[i].z));
-    //      xyz_vector_main[i].x = clustering_msg->points[i].x;
-    //      xyz_vector_main[i].y = clustering_msg->points[i].y;
-    //      xyz_vector_main[i].z = clustering_msg->points[i].z;
-    //      xyz_vector_main[i].intensity = clustering_msg->points[i].intensity;
-  }
+  //   xyz_vector_main.push_back(PointXYZC(clustering_msg->points[i].x, clustering_msg->points[i].y, clustering_msg->points[i].z, clustering_msg->points[i].));
+
+  // }
 
   // Point cloud XYZ에 RGB 칼라 추가하기
   colorize(*clustering_msg, *tgt_colored, {255, 0, 0});
@@ -711,6 +761,7 @@ int main(int argc, char *argv[])
   LidarDriver<pcl::PointXYZI> driver; ///< Declare the driver object
   RSDriverParam param;                ///< Create a parameter object
 
+
   param.input_param.read_pcap = SIMULMODE_ON; ///< Set read_pcap to true
   param.input_param.pcap_repeat = true;
   param.input_param.pcap_path = PCAPFile;        ///< Set the pcap file directory
@@ -727,12 +778,16 @@ int main(int argc, char *argv[])
     RS_ERROR << "Driver Initialize Error..." << RS_REND;
     return -1;
   }
-  driver.start(); ///< The driver thread will start
-  RS_DEBUG << "RoboSense Lidar-Driver Linux online demo start......" << RS_REND;
 
   thread t1(keyboard_input_handler);
   thread t2(projection_handler);
+  while(!start_flag);
+  sleep(2);
 
+  driver.start(); ///< The driver thread will start
+  RS_DEBUG << "RoboSense Lidar-Driver Linux online demo start......" << RS_REND;
+
+ 
   while (!pcl_viewer->wasStopped())
   {
     {
