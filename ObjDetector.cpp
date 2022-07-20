@@ -60,11 +60,11 @@ float MAX_Y = UserCfg.GetFloat("MAX_Y");
 float MIN_Z = UserCfg.GetFloat("MIN_Z");
 float MAX_Z = UserCfg.GetFloat("MAX_Z");
 float LEAFSIZE = UserCfg.GetFloat("LEAFSIZE");
-float DistanceThreshold = UserCfg.GetFloat("DistanceThreshold");
 
-int DBSCAN_MINIMUM_POINTS = UserCfg.GetInt("DBSCAN_MINIMUM_POINTS");
+float DistanceThreshold = UserCfg.GetFloat("DistanceThreshold");
 int MaxIterations = UserCfg.GetInt("MaxIterations");
 
+int DBSCAN_MINIMUM_POINTS = UserCfg.GetInt("DBSCAN_MINIMUM_POINTS");
 float DBSCAN_EPSILON = UserCfg.GetFloat("DBSCAN_EPSILON");
 
 string WEIGHTS_PATH = UserCfg.GetString("WEIGHTS_PATH");
@@ -82,10 +82,11 @@ bool start_flag = 0;
 ================================
 */
 float minZ_filter = MIN_Z;
-// float minZ_filter = -0.27;
 float maxZ_filter = MAX_Z;
 float minY_filter = MIN_Y;
 float maxY_filter = MAX_Y;
+float minX_filter = MIN_X;
+float maxX_filter = MAX_X;
 float leafsize = LEAFSIZE;
 
 /*
@@ -301,7 +302,7 @@ void loadExtrinsic(cv::Mat &RT)
 }
 
 vector<distance_ClusterID> manim;
-void boxComputetoLidar(int camera_x, int camera_y, int box_width, int box_height) // box's border coordinates passed
+float boxComputetoLidar(int camera_x, int camera_y, int box_width, int box_height) // box's border coordinates passed
 {
   manim.clear();
   // int k = 0;
@@ -321,7 +322,7 @@ void boxComputetoLidar(int camera_x, int camera_y, int box_width, int box_height
       4. 박스에 해당하는 거리값 return 하기
       */
       float distance = sqrt(pow(test[i].m_x, 2) + pow(test[i].m_y, 2));
-      cout << "distance is " << distance << endl;
+      cout << "distance is " << distance << "/ x : " << test[i].m_x <<  endl;
       cout << "min_distance_per_box is" << min_distance_per_box << endl;
 
       // if (i == 0)
@@ -339,6 +340,7 @@ void boxComputetoLidar(int camera_x, int camera_y, int box_width, int box_height
     }
   }
   cout << "min_distance_per_box is " << min_distance_per_box << endl;
+  return min_distance_per_box;
 }
 
 void projection_handler()
@@ -398,11 +400,8 @@ void projection_handler()
     capture.read(frame);
     if (frame.empty()){
       capture.set(cv::CAP_PROP_POS_FRAMES, 0);
-    //  videofps = capture.get(cv::CAP_PROP_FPS);
-      // break; // Breaking the loop if no video frame is detected.
     }
       
-
     cv::resize(frame, frame, cv::Size((int)(frame.cols / SCALE_FACTOR) + 1, (int)(frame.rows / SCALE_FACTOR) + 1));
 
     std::vector<int> classIds;
@@ -413,6 +412,7 @@ void projection_handler()
     frame_cnt++;
     int i = 0;
 
+    test.clear();
     for (auto it = xyz_vector_main.begin(); it != xyz_vector_main.end(); ++it)
     {
 
@@ -439,9 +439,11 @@ void projection_handler()
       int red = min(255, (int)(255 * abs((val - maxVal) / maxVal)));
       int green = min(255, (int)(255 * (1 - abs((val - maxVal) / maxVal))));
 
-      cv::circle(frame, pt, 1, cv::Scalar(0, green, red), -1);
+      cv::circle(frame, pt, 5, cv::Scalar(0, green, red), -1);
+
+      // std::cout << "[ProjectionFunc1] " << it->x << "/" << it->y << "/" << it->z  << "/" << pt.x << "/" << pt.y << std::endl;
       test.push_back(PointXYZ_CameraXY(it->x, it->y, it->z, pt.x, pt.y, it->clusterID));
-      //      cout << test[i].m_x << ", " << test[i].m_y << ", " <<test[i].m_z<< endl;
+      // cout << "[ProjectionFunc2] " << test[i].m_x << ", " << test[i].m_y << ", " << test[i].m_z<< endl;
       i++;
     }
 
@@ -464,13 +466,13 @@ void projection_handler()
       int center_x = box.x + (int)(box.width / 2);
       int center_y = box.y + (int)(box.height / 2);
 
-      if(classId == 0 || classId == 2) // person or car
-        boxComputetoLidar(box.x, box.y, box.width, box.height);
+      // if(classId == 0 || classId == 2) // person or car
+      float dist = boxComputetoLidar(box.x, box.y, box.width, box.height);
 
-      cv::circle(frame, cv::Point(center_x, center_y), 5, cv::Scalar(0, 0, 255), -1);
+      // cv::circle(frame, cv::Point(center_x, center_y), 5, cv::Scalar(0, 0, 255), -1);
 
       char obj_msg[100];
-      sprintf(obj_msg, "%s:%.1f", class_list[classId].c_str(), confidence);
+      sprintf(obj_msg, "%s:%.1f", class_list[classId].c_str(), dist);
       cv::putText(frame, obj_msg, cv::Point(box.x, box.y - 5), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 0));
     }
 
@@ -589,6 +591,7 @@ void pointCloudCallback(const PointCloudMsg<pcl::PointXYZI> &msg)
 
   pcl::PointCloud<pcl::PointXYZI>::Ptr pcl_pointcloud_filtered_z(new pcl::PointCloud<pcl::PointXYZI>);
   pcl::PointCloud<pcl::PointXYZI>::Ptr pcl_pointcloud_filtered_yz(new pcl::PointCloud<pcl::PointXYZI>);
+  pcl::PointCloud<pcl::PointXYZI>::Ptr pcl_pointcloud_filtered_xyz(new pcl::PointCloud<pcl::PointXYZI>);
   pcl::PointCloud<PointXYZIC> new_msg_returned;
   pcl::PointCloud<PointXYZIC>::Ptr clustering_msg(new pcl::PointCloud<PointXYZIC>);
 
@@ -675,6 +678,13 @@ void pointCloudCallback(const PointCloudMsg<pcl::PointXYZI> &msg)
     yfilter.setFilterLimitsNegative(false);
     yfilter.filter(*pcl_pointcloud_filtered_yz);
 
+    pcl::PassThrough<pcl::PointXYZI> xfilter;
+    xfilter.setInputCloud(pcl_pointcloud_filtered_yz);
+    xfilter.setFilterFieldName("x");
+    xfilter.setFilterLimits(minX_filter, maxX_filter);
+    xfilter.setFilterLimitsNegative(false);
+    xfilter.filter(*pcl_pointcloud_filtered_xyz);
+
     // voxel화 함으로 input PC 개수 조정
     pcl::PointCloud<pcl::PointXYZI> laserCloudIn = *pcl_pointcloud_filtered_yz;
 
@@ -717,14 +727,46 @@ void pointCloudCallback(const PointCloudMsg<pcl::PointXYZI> &msg)
     totalClusterCount = dbscan.run();
 
     //result of DBSCAN algorithm
-    printResults(dbscan.m_points, dbscan.getTotalPointSize());
-    printClusteredObject(totalClusterCount, dbscan.m_points, dbscan.getTotalPointSize());
-    xyz_vector_main.clear();
+    // printResults(dbscan.m_points, dbscan.getTotalPointSize());
+    // printClusteredObject(totalClusterCount, dbscan.m_points, dbscan.getTotalPointSize());
+    
+    int i = 0, max_clusterID = 1;
+    vector<AvgPoint> output(100);
+    int dbscan_num_points = dbscan.getTotalPointSize();
+    // std::cout << "dbscan_num_points " << dbscan_num_points << std::endl;
+    while (i < dbscan_num_points)
+    {
+      if(dbscan.m_points[i].clusterID > max_clusterID)
+        max_clusterID = dbscan.m_points[i].clusterID;
+      if(dbscan.m_points[i].clusterID > 0){
 
+        if(output[dbscan.m_points[i].clusterID].x > dbscan.m_points[i].x){
+          output[dbscan.m_points[i].clusterID].x = dbscan.m_points[i].x;
+        }
+        // output[dbscan.m_points[i].clusterID].x += dbscan.m_points[i].x;
+        output[dbscan.m_points[i].clusterID].y += dbscan.m_points[i].y;
+        output[dbscan.m_points[i].clusterID].z += dbscan.m_points[i].z;
+        output[dbscan.m_points[i].clusterID].num += 1;
+      }
+      ++i;
+    }
+
+    xyz_vector_main.clear();
+    std::cout << "[max_clusterID] " << max_clusterID << std::endl;
+    for(int id = 1; id<= max_clusterID; id++){
+      // output[id].x /= output[id].num;
+      output[id].y /= output[id].num;
+      output[id].z /= output[id].num;
+
+      // new_msg_returned.push_back(PointXYZIC(output[id].x, output[id].y, output[id].z, id));
+      xyz_vector_main.push_back(PointXYZC(output[id].x, output[id].y, output[id].z, id));
+      std::cout << "[clusterID] " << id << "  "<< output[id].x << "/" << output[id].y << "/" << output[id].z << std::endl;
+    }
+    
     for (int i = 0; i < dbscan.getTotalPointSize(); i++)
     {
       new_msg_returned.push_back(PointXYZIC(dbscan.m_points[i].x, dbscan.m_points[i].y, dbscan.m_points[i].z, dbscan.m_points[i].clusterID));
-      xyz_vector_main.push_back(PointXYZC(dbscan.m_points[i].x, dbscan.m_points[i].y, dbscan.m_points[i].z, dbscan.m_points[i].clusterID));
+      // xyz_vector_main.push_back(PointXYZC(dbscan.m_points[i].x, dbscan.m_points[i].y, dbscan.m_points[i].z, dbscan.m_points[i].clusterID));
     }
 
     // // 오리지널 PCL 프로젝션용 vector에 assign
@@ -829,8 +871,8 @@ int main(int argc, char *argv[])
   }
 
   thread t1(keyboard_input_handler);
-//  thread t2(projection_handler);
-//  while(!start_flag);
+  thread t2(projection_handler);
+  while(!start_flag);
 //  sleep(2);
 
   driver.start(); ///< The driver thread will start
@@ -846,7 +888,7 @@ int main(int argc, char *argv[])
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
   }
   t1.join();
-//  t2.join();
+  t2.join();
   return 0;
 }
 

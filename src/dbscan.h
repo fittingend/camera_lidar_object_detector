@@ -19,6 +19,12 @@ typedef struct Point_
     int clusterID;  // clustered ID
 }Point;
 
+typedef struct AvgPoint_
+{
+    float x= 100.0, y= 0.0, z= 0.0;  // X, Y, Z position
+    int num = 0;  // clustered ID
+}AvgPoint;
+
 class DBSCAN {
 public:    
     DBSCAN(unsigned int minPts, float eps, vector<Point> points){
