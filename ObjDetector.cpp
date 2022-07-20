@@ -1,4 +1,3 @@
-
 #include "rs_driver/api/lidar_driver.h"
 #include "lib/lidar_worker.h"
 #include "lib/lidar_out.h"
@@ -61,8 +60,11 @@ float MAX_Y = UserCfg.GetFloat("MAX_Y");
 float MIN_Z = UserCfg.GetFloat("MIN_Z");
 float MAX_Z = UserCfg.GetFloat("MAX_Z");
 float LEAFSIZE = UserCfg.GetFloat("LEAFSIZE");
+float DistanceThreshold = UserCfg.GetFloat("DistanceThreshold");
 
 int DBSCAN_MINIMUM_POINTS = UserCfg.GetInt("DBSCAN_MINIMUM_POINTS");
+int MaxIterations = UserCfg.GetInt("MaxIterations");
+
 float DBSCAN_EPSILON = UserCfg.GetFloat("DBSCAN_EPSILON");
 
 string WEIGHTS_PATH = UserCfg.GetString("WEIGHTS_PATH");
@@ -583,145 +585,192 @@ void pointCloudCallback(const PointCloudMsg<pcl::PointXYZI> &msg)
 {
   auto start = std::chrono::high_resolution_clock::now();
 
-  // RS_MSG << "msg: " << msg.seq << " point cloud size: " << msg.point_cloud_ptr->size() << RS_REND;
   pcl::PointCloud<pcl::PointXYZI>::Ptr pcl_pointcloud(new pcl::PointCloud<pcl::PointXYZI>);
 
   pcl::PointCloud<pcl::PointXYZI>::Ptr pcl_pointcloud_filtered_z(new pcl::PointCloud<pcl::PointXYZI>);
   pcl::PointCloud<pcl::PointXYZI>::Ptr pcl_pointcloud_filtered_yz(new pcl::PointCloud<pcl::PointXYZI>);
-  //  Visualization *_vs;
-  //  pcl::PointCloud<PointXYZIR> msg_returned;
-  // pcl::PointCloud<pcl::PointXYZI> new_msg_returned;
   pcl::PointCloud<PointXYZIC> new_msg_returned;
-
-  // pcl::PointCloud<pcl::PointXYZI>::Ptr clustering_msg(new pcl::PointCloud<pcl::PointXYZI>);
   pcl::PointCloud<PointXYZIC>::Ptr clustering_msg(new pcl::PointCloud<PointXYZIC>);
-
-  //  LIDAR_OUT *output;
-
-  /* Note: Please do not put time-consuming operations in the callback function! */
-  /* Make a copy of the message and process it in another thread is recommended*/
-  //  RS_MSG << "msg: " << msg.seq << " point cloud size: " << msg.point_cloud_ptr->size() << RS_REND;
 
   pcl_pointcloud->points.assign(msg.point_cloud_ptr->begin(), msg.point_cloud_ptr->end());
   pcl_pointcloud->height = msg.height;
   pcl_pointcloud->width = msg.width;
   pcl_pointcloud->is_dense = false;
 
-  // cout << pcl_pointcloud->points.size() << endl;
+  /* segmentation 테스트 */
+  pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_seg(new pcl::PointCloud<pcl::PointXYZ>), cloud_f(new pcl::PointCloud<pcl::PointXYZ>);
+  pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_plane(new pcl::PointCloud<pcl::PointXYZ>);
 
-  // passthorugh 로 포인트 클라우드 값 필터
-  //  X 축으로 filtering
-  //  중앙 부분 추출
-  pcl::PassThrough<pcl::PointXYZI> zfilter;
-  zfilter.setInputCloud(pcl_pointcloud);
-  zfilter.setFilterFieldName("z");
-  zfilter.setFilterLimits(minZ_filter, maxZ_filter);
-  //  zfilter.setFilterLimits(-1.5, 3);
-  zfilter.setFilterLimitsNegative(false);
-  zfilter.filter(*pcl_pointcloud_filtered_z);
+  pcl::copyPointCloud(*pcl_pointcloud, *cloud_seg);
 
-  pcl::PassThrough<pcl::PointXYZI> yfilter;
-  yfilter.setInputCloud(pcl_pointcloud_filtered_z);
-  yfilter.setFilterFieldName("y");
-  yfilter.setFilterLimits(minY_filter, maxY_filter);
-  yfilter.setFilterLimitsNegative(false);
-  yfilter.filter(*pcl_pointcloud_filtered_yz);
+  pcl::ModelCoefficients::Ptr coefficients(new pcl::ModelCoefficients);
+  pcl::PointIndices::Ptr inliers(new pcl::PointIndices);
+  // Create the segmentation object
+  pcl::SACSegmentation<pcl::PointXYZ> seg;
+  // Optional
+  seg.setOptimizeCoefficients(true);
+  // Mandatory
+  seg.setModelType(pcl::SACMODEL_PLANE);
+  seg.setMethodType(pcl::SAC_RANSAC);
+  seg.setMaxIterations(MaxIterations);
+  seg.setDistanceThreshold(DistanceThreshold);
 
-  // voxel화 함으로 input PC 개수 조정
-  pcl::PointCloud<pcl::PointXYZI> laserCloudIn = *pcl_pointcloud_filtered_yz;
+  seg.setInputCloud(cloud_seg);
+  seg.segment(*inliers, *coefficients);
 
-  pcl::VoxelGrid<pcl::PointXYZI> vg;
-  pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_filtered_v2(new pcl::PointCloud<pcl::PointXYZI>);
-  vg.setInputCloud(laserCloudIn.makeShared());
-  vg.setLeafSize(leafsize, leafsize, leafsize); // original 0.5f; the larger it is the more downsampled it gets
-  vg.filter(*cloud_filtered_v2);
-
-  // std::cout << "[ORI_PCL]" << pcl_pointcloud_filtered_yz->points.size() << std::endl;
-  // std::cout << "[INPUT_PCL]" << cloud_filtered_v2->points.size() << std::endl;
-
-  /* 오리지널 방식으로 클러스터링 시도*/
-
-  // uint16_t obj_cnt =
-  //     lidar_clustering("hello", pcl_pointcloud_filtered_yz, new_msg_returned); // Lidar clustering  진행
-
-  // vector<Point> points;
-
-  // Point *p = (Point *)calloc(cloud_filtered_v2->points.size(), sizeof(Point));
-
-  // for (int i = 0; i < cloud_filtered_v2->points.size(); i++)
-  // {
-  //   p[i].x = cloud_filtered_v2->points[i].x;
-  //   p[i].y = cloud_filtered_v2->points[i].y;
-  //   p[i].z = cloud_filtered_v2->points[i].z;
-  //   p[i].clusterID = UNCLASSIFIED;
-  //   points.push_back(p[i]);
-  //   // cout << p[i].x <<endl;
-
-  //   //    points.push_back(pcl_pointcloud_filtered_yz->points[i].x, pcl_pointcloud_filtered_yz->points[i].y,pcl_pointcloud_filtered_yz->points[i].z, UNCLASSIFIED);
-  // }
-  // free(p);
-
-  /* DBSCAN 으로 클러스터링 시도*/
-
-  // constructor
-  // float EPSILON = EPSILON_INPUT * EPSILON_INPUT;
-  // DBSCAN dbscan(MINIMUM_POINTS, EPSILON, points);
-  // totalClusterCount = dbscan.run();
-
-  // result of DBSCAN algorithm
-  // printResults(dbscan.m_points, dbscan.getTotalPointSize());
-  // printClusteredObject(totalClusterCount, dbscan.m_points, dbscan.getTotalPointSize());
-  xyz_vector_main.clear();
-
-  // for (int i = 0; i < dbscan.getTotalPointSize(); i++)
-  // {
-  //   new_msg_returned.push_back(PointXYZIC(dbscan.m_points[i].x, dbscan.m_points[i].y, dbscan.m_points[i].z, dbscan.m_points[i].clusterID));
-  //   xyz_vector_main.push_back(PointXYZC(dbscan.m_points[i].x, dbscan.m_points[i].y, dbscan.m_points[i].z, dbscan.m_points[i].clusterID));
-  // }
-
-  // 오리지널 PCL 프로젝션용 vector에 assign
-  for (int i = 0; i < cloud_filtered_v2->points.size(); i++)
+  if (inliers->indices.size() == 0)
   {
-    new_msg_returned.push_back(PointXYZIC(cloud_filtered_v2->points[i].x, cloud_filtered_v2->points[i].y, cloud_filtered_v2->points[i].z, 1));
-    xyz_vector_main.push_back(PointXYZC(cloud_filtered_v2->points[i].x, cloud_filtered_v2->points[i].y, cloud_filtered_v2->points[i].z, 1));
+    std::cout << "Could not estimate a planar anymore." << std::endl;
   }
-
-  // colorize
-  pcl::PointCloud<pcl::PointXYZRGB>::Ptr tgt_colored(new pcl::PointCloud<pcl::PointXYZRGB>);
-  pcl::PointCloud<pcl::PointXYZRGB>::Ptr ori_colored(new pcl::PointCloud<pcl::PointXYZRGB>);
-  pcl::PointCloud<pcl::PointXYZRGB>::Ptr combined_colored(new pcl::PointCloud<pcl::PointXYZRGB>);
-
-  *clustering_msg = new_msg_returned;
-
-  // for (int i = 0; i < clustering_msg->points.size(); i++)
-  // {
-
-  //   xyz_vector_main.push_back(PointXYZC(clustering_msg->points[i].x, clustering_msg->points[i].y, clustering_msg->points[i].z, clustering_msg->points[i].));
-
-  // }
-
-  // Point cloud XYZ에 RGB 칼라 추가하기
-  colorize(*clustering_msg, *tgt_colored, {255, 0, 0});
-  // colorize1(*pcl_pointcloud, *ori_colored, {255,255,255});
-
-  // pcl::PointCloud<pcl::PointXYZRGB> tgt_colored_test = *tgt_colored;
-
-  //   for (int i=0; i<new_msg_returned.points.size(); i++){
-  //     tgt_colored_test.points[i].z += 5;
-  //   }
-
-  // *combined_colored += *ori_colored;
-  *combined_colored += *tgt_colored;
-  // *combined_colored += tgt_colored_test;
-
-  // PointCloudColorHandlerRGBField<pcl::PointXYZRGB> point_color_handle(tgt_colored);
-  PointCloudColorHandlerRGBField<pcl::PointXYZRGB> point_color_handle(combined_colored);
+  else
   {
-    const std::lock_guard<std::mutex> lock(mex_viewer);
-    // pcl_viewer->updatePointCloud<pcl::PointXYZRGB>(tgt_colored, point_color_handle, "rslidar");
-    pcl_viewer->updatePointCloud<pcl::PointXYZRGB>(combined_colored, point_color_handle, "rslidar");
+    // Filter, [Extracting indices from a PointCloud](https://pcl.readthedocs.io/projects/tutorials/en/latest/extract_indices.html#extract-indices)
+    pcl::ExtractIndices<pcl::PointXYZ> extract;
+    extract.setInputCloud(cloud_seg);
+    extract.setIndices(inliers);
+    extract.setNegative(false);
+    extract.filter(*cloud_plane);
+    pcl::PointXYZ min, max;
+    pcl::getMinMax3D(*cloud_seg, min, max);
+    double min_z = min.z;
+    std::cout << "ground plane size: " << cloud_plane->points.size() << ", min_z:" << min_z << std::endl;
+    //show_point_cloud(cloud_plane, "gound plane in point cloud");
+    // filter planar
+    extract.setNegative(true);
+    extract.filter(*cloud_f);
+    //show_point_cloud(cloud_f, "plane filtered point cloud");
+    *cloud_seg = *cloud_f;
+  //    *cloud_seg = *cloud_plane;
   }
-}
+    // std::cerr << "Model coefficients: " << coefficients->values[0] << " "
+    //                                     << coefficients->values[1] << " "
+    //                                     << coefficients->values[2] << " "
+    //                                     << coefficients->values[3] << std::endl;
+
+    // std::cerr << "Model inliers: " << inliers->indices.size () << std::endl;
+    // for (const auto& idx: inliers->indices)
+    //   std::cerr << idx << "    " << cloud_seg->points[idx].x << " "
+    //                              << cloud_seg->points[idx].y << " "
+    //                              << cloud_seg->points[idx].z << std::endl;
+
+    // passthorugh 로 포인트 클라우드 값 필터
+    //  X 축으로 filtering
+    //  중앙 부분 추출
+
+    pcl::PointCloud<pcl::PointXYZI>::Ptr pcl_cloud_seg(new pcl::PointCloud<pcl::PointXYZI>);
+    pcl::copyPointCloud(*cloud_seg, *pcl_cloud_seg);
+
+    pcl::PassThrough<pcl::PointXYZI> zfilter;
+    zfilter.setInputCloud(pcl_cloud_seg);
+    zfilter.setFilterFieldName("z");
+    zfilter.setFilterLimits(minZ_filter, maxZ_filter);
+    //  zfilter.setFilterLimits(-1.5, 3);
+    zfilter.setFilterLimitsNegative(false);
+    zfilter.filter(*pcl_pointcloud_filtered_z);
+
+    pcl::PassThrough<pcl::PointXYZI> yfilter;
+    yfilter.setInputCloud(pcl_pointcloud_filtered_z);
+    yfilter.setFilterFieldName("y");
+    yfilter.setFilterLimits(minY_filter, maxY_filter);
+    yfilter.setFilterLimitsNegative(false);
+    yfilter.filter(*pcl_pointcloud_filtered_yz);
+
+    // voxel화 함으로 input PC 개수 조정
+    pcl::PointCloud<pcl::PointXYZI> laserCloudIn = *pcl_pointcloud_filtered_yz;
+
+    pcl::VoxelGrid<pcl::PointXYZI> vg;
+    pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_filtered_v2(new pcl::PointCloud<pcl::PointXYZI>);
+    vg.setInputCloud(laserCloudIn.makeShared());
+    vg.setLeafSize(leafsize, leafsize, leafsize); // original 0.5f; the larger it is the more downsampled it gets
+    vg.filter(*cloud_filtered_v2);
+
+    // std::cout << "[ORI_PCL]" << pcl_pointcloud_filtered_yz->points.size() << std::endl;
+    // std::cout << "[INPUT_PCL]" << cloud_filtered_v2->points.size() << std::endl;
+
+    /* 오리지널 방식으로 클러스터링 시도*/
+
+    // uint16_t obj_cnt =
+    //     lidar_clustering("hello", pcl_pointcloud_filtered_yz, new_msg_returned); // Lidar clustering  진행
+
+
+    /* DBSCAN 으로 클러스터링 시도*/
+    vector<Point> points;
+
+    Point *p = (Point *)calloc(cloud_filtered_v2->points.size(), sizeof(Point));
+
+    for (int i = 0; i < cloud_filtered_v2->points.size(); i++)
+    {
+      p[i].x = cloud_filtered_v2->points[i].x;
+      p[i].y = cloud_filtered_v2->points[i].y;
+      p[i].z = cloud_filtered_v2->points[i].z;
+      p[i].clusterID = UNCLASSIFIED;
+      points.push_back(p[i]);
+      // cout << p[i].x <<endl;
+
+      //    points.push_back(pcl_pointcloud_filtered_yz->points[i].x, pcl_pointcloud_filtered_yz->points[i].y,pcl_pointcloud_filtered_yz->points[i].z, UNCLASSIFIED);
+    }
+    free(p);
+
+    //constructor
+    float EPSILON = EPSILON_INPUT * EPSILON_INPUT;
+    DBSCAN dbscan(MINIMUM_POINTS, EPSILON, points);
+    totalClusterCount = dbscan.run();
+
+    //result of DBSCAN algorithm
+    printResults(dbscan.m_points, dbscan.getTotalPointSize());
+    printClusteredObject(totalClusterCount, dbscan.m_points, dbscan.getTotalPointSize());
+    xyz_vector_main.clear();
+
+    for (int i = 0; i < dbscan.getTotalPointSize(); i++)
+    {
+      new_msg_returned.push_back(PointXYZIC(dbscan.m_points[i].x, dbscan.m_points[i].y, dbscan.m_points[i].z, dbscan.m_points[i].clusterID));
+      xyz_vector_main.push_back(PointXYZC(dbscan.m_points[i].x, dbscan.m_points[i].y, dbscan.m_points[i].z, dbscan.m_points[i].clusterID));
+    }
+
+    // // 오리지널 PCL 프로젝션용 vector에 assign
+    // for (int i = 0; i < cloud_seg->points.size(); i++)
+    // {
+    //   //    new_msg_returned.push_back(PointXYZIC(cloud_filtered_v2->points[i].x, cloud_filtered_v2->points[i].y, cloud_filtered_v2->points[i].z, 1));
+    //   new_msg_returned.push_back(PointXYZIC(cloud_seg->points[i].x, cloud_seg->points[i].y, cloud_seg->points[i].z, 1));
+    //   xyz_vector_main.push_back(PointXYZC(cloud_seg->points[i].x, cloud_seg->points[i].y, cloud_seg->points[i].z, 1));
+    // }
+
+    // colorize
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr tgt_colored(new pcl::PointCloud<pcl::PointXYZRGB>);
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr ori_colored(new pcl::PointCloud<pcl::PointXYZRGB>);
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr combined_colored(new pcl::PointCloud<pcl::PointXYZRGB>);
+
+    *clustering_msg = new_msg_returned;
+
+    // for (int i = 0; i < clustering_msg->points.size(); i++)
+    // {
+
+    //   xyz_vector_main.push_back(PointXYZC(clustering_msg->points[i].x, clustering_msg->points[i].y, clustering_msg->points[i].z, clustering_msg->points[i].));
+
+    // }
+
+    // Point cloud XYZ에 RGB 칼라 추가하기
+    colorize(*clustering_msg, *tgt_colored, {255, 0, 0});
+    // colorize1(*pcl_pointcloud, *ori_colored, {255,255,255});
+
+    // pcl::PointCloud<pcl::PointXYZRGB> tgt_colored_test = *tgt_colored;
+
+    //   for (int i=0; i<new_msg_returned.points.size(); i++){
+    //     tgt_colored_test.points[i].z += 5;
+    //   }
+
+    // *combined_colored += *ori_colored;
+    *combined_colored += *tgt_colored;
+    // *combined_colored += tgt_colored_test;
+
+    // PointCloudColorHandlerRGBField<pcl::PointXYZRGB> point_color_handle(tgt_colored);
+    PointCloudColorHandlerRGBField<pcl::PointXYZRGB> point_color_handle(combined_colored);
+    {
+      const std::lock_guard<std::mutex> lock(mex_viewer);
+      // pcl_viewer->updatePointCloud<pcl::PointXYZRGB>(tgt_colored, point_color_handle, "rslidar");
+      pcl_viewer->updatePointCloud<pcl::PointXYZRGB>(combined_colored, point_color_handle, "rslidar");
+    }
+  }
 
 /**
  * @brief The exception callback function. This function will be registered to lidar driver.
@@ -780,9 +829,9 @@ int main(int argc, char *argv[])
   }
 
   thread t1(keyboard_input_handler);
-  thread t2(projection_handler);
-  while(!start_flag);
-  sleep(2);
+//  thread t2(projection_handler);
+//  while(!start_flag);
+//  sleep(2);
 
   driver.start(); ///< The driver thread will start
   RS_DEBUG << "RoboSense Lidar-Driver Linux online demo start......" << RS_REND;
@@ -797,7 +846,7 @@ int main(int argc, char *argv[])
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
   }
   t1.join();
-  t2.join();
+//  t2.join();
   return 0;
 }
 
