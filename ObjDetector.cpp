@@ -20,8 +20,6 @@
 #include "planar_segmentation.h"
 
 extern const std::vector<cv::Scalar> colors;
-
-// vector<pcl::PointXYZ> xyz_vector_main;
 vector<PointXYZC> xyz_vector_main;
 vector<PointXYZ_CameraXY> test;
 
@@ -336,48 +334,48 @@ void projection_handler()
   capture.release(); // Releasing the buffer memory
 }
 
-void printResults(vector<Point> &points, int num_points)
-{
-  int i = 0;
-  printf("Number of points: %u\n"
-         " x     y     z     cluster_id\n"
-         "-----------------------------\n",
-         num_points);
-  while (i < num_points)
-  {
-    printf("%5.2lf %5.2lf %5.2lf: %d\n",
-           points[i].x,
-           points[i].y, points[i].z,
-           points[i].clusterID);
-    ++i;
-  }
-}
+// void printResults(vector<Point> &points, int num_points)
+// {
+//   int i = 0;
+//   printf("Number of points: %u\n"
+//          " x     y     z     cluster_id\n"
+//          "-----------------------------\n",
+//          num_points);
+//   while (i < num_points)
+//   {
+//     printf("%5.2lf %5.2lf %5.2lf: %d\n",
+//            points[i].x,
+//            points[i].y, points[i].z,
+//            points[i].clusterID);
+//     ++i;
+//   }
+// }
 
-void printResults1(vector<Point> &points, int i)
-{
-  printf(" x     y     z     cluster_id\n"
-         "-----------------------------\n");
-  printf("%5.2lf %5.2lf %5.2lf: %d\n",
-         points[i].x,
-         points[i].y, points[i].z,
-         points[i].clusterID);
-}
+// void printResults1(vector<Point> &points, int i)
+// {
+//   printf(" x     y     z     cluster_id\n"
+//          "-----------------------------\n");
+//   printf("%5.2lf %5.2lf %5.2lf: %d\n",
+//          points[i].x,
+//          points[i].y, points[i].z,
+//          points[i].clusterID);
+// }
 
-void printClusteredObject(int totalClusterCount, vector<Point> &points, int num_points)
-{
-  for (int j = 1; j < totalClusterCount + 1; j++)
-  {
-    int i = 0;
-    while (i < num_points)
-    {
-      if (points[i].clusterID == j)
-      {
-        //          printResults1(points, i);
-      }
-      i++;
-    }
-  }
-}
+// void printClusteredObject(int totalClusterCount, vector<Point> &points, int num_points)
+// {
+//   for (int j = 1; j < totalClusterCount + 1; j++)
+//   {
+//     int i = 0;
+//     while (i < num_points)
+//     {
+//       if (points[i].clusterID == j)
+//       {
+//         //          printResults1(points, i);
+//       }
+//       i++;
+//     }
+//   }
+// }
 
 /**
  * @brief The point cloud callback function. This function will be registered to lidar driver.
@@ -675,13 +673,10 @@ int main(int argc, char *argv[])
 
   thread t1(keyboard_input_handler);
   thread t2(projection_handler);
-  while(!start_flag);
-//  sleep(2);
-
+  while(!start_flag); //yolo v4 init 완료
   driver.start(); ///< The driver thread will start
   RS_DEBUG << "RoboSense Lidar-Driver Linux online demo start......" << RS_REND;
 
- 
   while (!pcl_viewer->wasStopped())
   {
     {
