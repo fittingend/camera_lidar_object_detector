@@ -44,7 +44,7 @@ Raw 포인트 클라우드인 msg 처리를 다음 순서로 실행
 1. 	planar segmentation() 으로 지면 제거
 2. xyz 축으로 각각 min&max 값 설정해 관심point cloud만 필터 
 3. pcl::VoxelGrid 로 voxel 화. leafsize  가 클수록 voxel 화가 많이 되어 출력 point cloud 개수가 줄어듬
-4. Clustering 진행: K-means OR DBSCAN (default) 중 선택 가능. MINIMUM_POINTS 와 EPSILON 등의 parameter 설정 가능 
+4. Clustering 진행: Euclidean 유클리디안 클러스터링 OR DBSCAN (default) 중 선택 가능. MINIMUM_POINTS 와 EPSILON 등의 parameter 설정 가능 
 
 이렇게 preprocess 된 라이다 포인트 클라우드는 main 함수에서 생성된 projection_handler 쓰레드에서 카메라와 함께 projection 처리 
 	

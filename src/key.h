@@ -24,7 +24,7 @@ extern int totalClusterCount;
 
 /*
 ================================
-K-MEANS(?)
+유클리디안
 ================================
 */
 extern float clusterTolerance;

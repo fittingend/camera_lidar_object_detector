@@ -1,8 +1,6 @@
 #ifndef _VISUALIZER_H_
 #define _VISUALIZER_H_
 
-	
-
 #include <pcl/visualization/cloud_viewer.h>
 #include <iostream>
 #include <string>
@@ -22,7 +20,6 @@ class Visualization
     ~Visualization();     
     void update(pcl::PointCloud<PointXYZIR> data);
     int test();
-
 };
 
 #endif
